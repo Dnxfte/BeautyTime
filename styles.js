@@ -19,23 +19,27 @@ export const styles = StyleSheet.create({
   // Lists & Cards
   listContent: { paddingHorizontal: 16, paddingBottom: 20 },
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  
   cardHeader: { flexDirection: 'row', marginBottom: 12 },
   avatarPlaceholder: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#CCC' },
   masterInfo: { marginLeft: 12, justifyContent: 'center' },
-  masterName: { fontSize: 18, fontWeight: 'bold', color: '#000' },
-  ratingText: { fontSize: 14, color: '#000', marginTop: 2, fontWeight: '600' },
-  reviewsText: { color: '#666', fontWeight: '400' },
+  
+  // 👇 ОНОВЛЕНІ ШРИФТИ ДЛЯ КАРТКИ
+  masterName: { fontSize: 20, fontWeight: 'bold', color: '#000', marginBottom: 4 },
+  ratingText: { fontSize: 14, color: '#000', fontWeight: 'bold' },
+  reviewsText: { fontSize: 14, color: '#666', fontWeight: '400', marginLeft: 4 },
 
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12, gap: 8 },
   tag: { backgroundColor: '#E0E0E0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   tagText: { fontSize: 13, color: '#333' },
 
   galleryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  galleryPlaceholder: { width: '31%', aspectRatio: 1, backgroundColor: '#D1D1D1', borderRadius: 4 },
+  // 👇 Більш заокруглені кути фото (borderRadius: 8)
+  galleryPlaceholder: { width: '31%', aspectRatio: 1, backgroundColor: '#D1D1D1', borderRadius: 8 },
 
   footerInfo: { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 10 },
   infoRow: { flexDirection: 'row', alignItems: 'center' },
-  infoText: { fontSize: 13, color: '#333' },
+  infoText: { fontSize: 14, color: '#333' },
 
   // Master Profile
   navHeader: { flexDirection: 'row', justifyContent:'space-between', padding: 16 },

@@ -127,33 +127,74 @@ function HomeScreen() {
     }
   };
 
-  const renderMasterItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.9}
-      onPress={() => navigation.navigate("MasterProfile", { master: item })}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.avatarPlaceholder} />
-        <View style={styles.masterInfo}>
-          <Text style={styles.masterName}>{item.name}</Text>
-          <Text style={styles.ratingText}>★ {item.rating} / 5</Text>
-        </View>
-      </View>
+  const renderMasterItem = ({ item }) => {
+    // Розбиваємо текст тегів на масив ("Манікюр, Стрижка" -> ["Манікюр", "Стрижка"])
+    // Якщо тегів немає, робимо пустий список
+    const tagsList = item.tags ? item.tags.split(',').map(tag => tag.trim()) : [];
 
-      <View style={styles.footerInfo}>
-        <View style={styles.infoRow}>
-          <Ionicons
-            name="location-outline"
-            size={14}
-            color="#000"
-            style={{ marginRight: 4 }}
-          />
-          <Text style={styles.infoText}>{item.address}</Text>
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate("MasterProfile", { master: item })}
+      >
+        {/* Верхня частина: Аватар + Ім'я + Рейтинг */}
+        <View style={styles.cardHeader}>
+          <View style={styles.avatarPlaceholder} />
+          <View style={styles.masterInfo}>
+            <Text style={styles.masterName}>{item.name}</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+               <Text style={styles.ratingText}>★ {item.rating || 0} / 5</Text>
+               <Text style={styles.reviewsText}> ({item.reviews || 0} відгуки)</Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+        {/* Теги (послуги) */}
+        {tagsList.length > 0 && (
+          <View style={styles.tagsRow}>
+            {tagsList.map((tag, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Галерея (3 сірі квадрати, як на дизайні) */}
+        <View style={styles.galleryRow}>
+           <View style={styles.galleryPlaceholder} />
+           <View style={styles.galleryPlaceholder} />
+           <View style={styles.galleryPlaceholder} />
+        </View>
+
+        {/* Нижня частина: Адреса і Час */}
+        <View style={styles.footerInfo}>
+          <View style={[styles.infoRow, {marginBottom: 4}]}>
+            <Ionicons
+              name="location-outline"
+              size={16}
+              color="#000"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.infoText}>{item.address}</Text>
+          </View>
+          
+          {item.next_slot && (
+            <View style={styles.infoRow}>
+                <Ionicons
+                name="time-outline"
+                size={16}
+                color="#000"
+                style={{ marginRight: 4 }}
+                />
+                <Text style={styles.infoText}>Найближча дата: {item.next_slot}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -217,14 +258,13 @@ function MasterProfileScreen({ route }) {
     setDates(getNextDays());
   }, []);
 
+  // --- ЛОГІКА БРОНЮВАННЯ ---
   const handleBooking = () => {
     if (dates.length === 0) return;
 
-    // 1. Оголошуємо dateStr (ОСЬ ТУТ БУЛА ПОМИЛКА)
     const d = dates[selectedDateIndex];
     const dateStr = `${d.day} ${d.month} ${d.fullDate.getFullYear()}`;
 
-    // 2. Використовуємо dateStr
     const newBooking = {
       id: Date.now().toString(),
       date: `${dateStr} о ${selectedTime}`,
@@ -247,22 +287,22 @@ function MasterProfileScreen({ route }) {
     );
   };
 
+  // --- ЛОГІКА КОНСУЛЬТАЦІЇ ---
   const handleConsultation = () => {
-    // 1. Створюємо чат
     startChat(master.name);
-
-    // 2. Переходимо в список чатів, а потім в сам чат
-    // (initial: false змушує навігатор побудувати правильну історію)
     navigation.navigate("Main", {
       screen: "Чат",
-      params: {
+      params: { 
         screen: "ChatDetail",
         params: { name: master.name },
-        initial: false,
-      },
+        initial: false, 
+      }
     });
   };
 
+  // ⚠️ ТУТ НЕ МАЄ БУТИ ЗАЙВОЇ ДУЖКИ "}"
+
+  // --- ВІЗУАЛЬНА ЧАСТИНА (RETURN) ---
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
@@ -276,81 +316,45 @@ function MasterProfileScreen({ route }) {
         </View>
 
         <View style={{ paddingHorizontal: 16 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-            }}
-          >
+          {/* Шапка профілю */}
+          <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start"}}>
             <View>
               <Text style={styles.detailName}>{master.name}</Text>
               <Text style={styles.ratingText}>★ {master.rating} / 5</Text>
             </View>
-            <View
-              style={[
-                styles.avatarPlaceholder,
-                { width: 60, height: 60, borderRadius: 30 },
-              ]}
-            />
+            <View style={[styles.avatarPlaceholder, { width: 60, height: 60, borderRadius: 30 }]} />
           </View>
 
           <View style={{ marginTop: 15 }}>
-            <Text style={{ fontSize: 16, fontWeight: "500" }}>
-              {master.salon || "Салон краси"}
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 4,
-              }}
-            >
+            <Text style={{ fontSize: 16, fontWeight: "500" }}>{master.salon || "Салон краси"}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
               <Ionicons name="location-sharp" size={16} color="black" />
-              <Text style={[styles.infoText, { marginLeft: 4 }]}>
-                {master.address}
-              </Text>
+              <Text style={[styles.infoText, { marginLeft: 4 }]}>{master.address}</Text>
             </View>
           </View>
 
           <View style={styles.mapPlaceholder} />
 
+          {/* Календар */}
           <Text style={styles.sectionTitle}>Календар для запису</Text>
           <View style={styles.calendarRow}>
             {dates.map((d, i) => (
               <TouchableOpacity
                 key={i}
-                style={[
-                  styles.dateBox,
-                  selectedDateIndex === i && styles.dateBoxActive,
-                ]}
+                style={[styles.dateBox, selectedDateIndex === i && styles.dateBoxActive]}
                 onPress={() => setSelectedDateIndex(i)}
               >
-                <Text
-                  style={[
-                    styles.dateText,
-                    selectedDateIndex === i && {
-                      color: "#FFF",
-                      fontWeight: "bold",
-                    },
-                  ]}
-                >
-                  {d.day}
-                  {"\n"}
-                  {d.month}
+                <Text style={[styles.dateText, selectedDateIndex === i && { color: "#FFF", fontWeight: "bold" }]}>
+                  {d.day}{"\n"}{d.month}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
+          {/* Вибір часу */}
           <View style={styles.timePickerRow}>
-            <Text style={{ fontSize: 14, color: "#444" }}>
-              Оберіть бажаний час:
-            </Text>
-            <TouchableOpacity
-              style={styles.timeSelect}
-              onPress={() => setTimeModalVisible(true)}
-            >
+            <Text style={{ fontSize: 14, color: "#444" }}>Оберіть бажаний час:</Text>
+            <TouchableOpacity style={styles.timeSelect} onPress={() => setTimeModalVisible(true)}>
               <Text style={{ fontWeight: "bold" }}>{selectedTime}</Text>
               <Ionicons name="chevron-down" size={16} />
             </TouchableOpacity>
@@ -360,17 +364,20 @@ function MasterProfileScreen({ route }) {
             <Text style={styles.primaryBtnText}>Записатись</Text>
           </TouchableOpacity>
 
+          {/* Послуги з JSON */}
           <Text style={styles.sectionTitle}>Послуги</Text>
-          {[
-            { name: "Манікюр", price: "500 грн" },
-            { name: "Педікюр", price: "600 грн" },
-            { name: "Комплекс", price: "1000 грн" },
-          ].map((s, i) => (
-            <View key={i} style={styles.serviceRow}>
-              <Text style={styles.serviceName}>{s.name}</Text>
-              <Text style={styles.servicePrice}>{s.price}</Text>
-            </View>
-          ))}
+          {(master.services && master.services.length > 0) ? (
+            master.services.map((s, i) => (
+              <View key={i} style={styles.serviceRow}>
+                <Text style={styles.serviceName}>{s.name}</Text>
+                <Text style={styles.servicePrice}>{s.price}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{color: '#888', fontStyle: 'italic', marginTop: 5, marginBottom: 10}}>
+              Список послуг не вказано
+            </Text>
+          )}
 
           <Text style={styles.sectionTitle}>Портфоліо</Text>
           <View style={styles.galleryRow}>
@@ -381,21 +388,17 @@ function MasterProfileScreen({ route }) {
         </View>
       </ScrollView>
 
+      {/* Нижня панель кнопок */}
       <View style={styles.stickyFooter}>
-        <TouchableOpacity
-          style={[styles.primaryBtn, { flex: 1, marginRight: 10 }]}
-          onPress={() => {}}
-        >
+        <TouchableOpacity style={[styles.primaryBtn, { flex: 1, marginRight: 10 }]} onPress={() => {}}>
           <Text style={styles.primaryBtnText}>Вибрати дату</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.secondaryBtn, { flex: 1 }]}
-          onPress={handleConsultation}
-        >
+        <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleConsultation}>
           <Text style={styles.secondaryBtnText}>Консультація</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Модальне вікно часу */}
       <Modal visible={timeModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -416,10 +419,7 @@ function MasterProfileScreen({ route }) {
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity
-              onPress={() => setTimeModalVisible(false)}
-              style={{ marginTop: 20, alignSelf: "center" }}
-            >
+            <TouchableOpacity onPress={() => setTimeModalVisible(false)} style={{ marginTop: 20, alignSelf: "center" }}>
               <Text style={{ color: "red", fontSize: 16 }}>Скасувати</Text>
             </TouchableOpacity>
           </View>
