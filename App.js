@@ -1,6 +1,6 @@
 import React, { useState, useContext, createContext, useEffect } from "react";
-import { ActivityIndicator } from "react-native"; 
-import { supabase } from "./supabaseConfig"; 
+import { ActivityIndicator } from "react-native";
+import { supabase } from "./supabaseConfig";
 import {
   Text,
   View,
@@ -31,22 +31,56 @@ const BookingsContext = createContext();
 // --- ДАНІ (MOCK DATA) ---
 
 const CITIES = [
-  "Київ", "Львів", "Одеса", "Дніпро", "Харків", "Вінниця", "Запоріжжя",
-  "Івано-Франківськ", "Луцьк", "Тернопіль", "Рівне", "Хмельницький",
-  "Житомир", "Чернівці", "Ужгород", "Черкаси", "Чернігів", "Полтава",
-  "Суми", "Миколаїв", "Херсон",
+  "Київ",
+  "Львів",
+  "Одеса",
+  "Дніпро",
+  "Харків",
+  "Вінниця",
+  "Запоріжжя",
+  "Івано-Франківськ",
+  "Луцьк",
+  "Тернопіль",
+  "Рівне",
+  "Хмельницький",
+  "Житомир",
+  "Чернівці",
+  "Ужгород",
+  "Черкаси",
+  "Чернігів",
+  "Полтава",
+  "Суми",
+  "Миколаїв",
+  "Херсон",
 ];
 
 const TIME_SLOTS = [
-  "09:00", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00",
+  "09:00",
+  "10:00",
+  "11:30",
+  "13:00",
+  "14:30",
+  "16:00",
+  "17:30",
+  "19:00",
 ];
 
 // Генерація дат (наступні 4 дні)
 const getNextDays = () => {
   const days = [];
   const months = [
-    "Січня", "Лютого", "Березня", "Квітня", "Травня", "Червня",
-    "Липня", "Серпня", "Вересня", "Жовтня", "Листопада", "Грудня",
+    "Січня",
+    "Лютого",
+    "Березня",
+    "Квітня",
+    "Травня",
+    "Червня",
+    "Липня",
+    "Серпня",
+    "Вересня",
+    "Жовтня",
+    "Листопада",
+    "Грудня",
   ];
 
   for (let i = 0; i < 4; i++) {
@@ -60,12 +94,6 @@ const getNextDays = () => {
   }
   return days;
 };
-
-const CHATS = [
-  { id: "1", name: "Майстер Олена", unread: 0 },
-  { id: "2", name: "Майстер Наталія", unread: 0 },
-  { id: "3", name: "Майстер Вікторія", unread: 0 },
-];
 
 // --- ЕКРАНИ ---
 
@@ -149,7 +177,9 @@ function HomeScreen() {
 
       {/* Перевірка: завантажується чи показуємо список */}
       {loading ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <ActivityIndicator size="large" color="#000" />
         </View>
       ) : (
@@ -174,7 +204,9 @@ function HomeScreen() {
 function MasterProfileScreen({ route }) {
   const navigation = useNavigation();
   const { master } = route.params;
-  const { addBooking } = useContext(BookingsContext);
+
+  // Дістаємо функції з контексту
+  const { addBooking, startChat } = useContext(BookingsContext);
 
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
   const [selectedTime, setSelectedTime] = useState("10:00");
@@ -187,9 +219,12 @@ function MasterProfileScreen({ route }) {
 
   const handleBooking = () => {
     if (dates.length === 0) return;
+
+    // 1. Оголошуємо dateStr (ОСЬ ТУТ БУЛА ПОМИЛКА)
     const d = dates[selectedDateIndex];
     const dateStr = `${d.day} ${d.month} ${d.fullDate.getFullYear()}`;
 
+    // 2. Використовуємо dateStr
     const newBooking = {
       id: Date.now().toString(),
       date: `${dateStr} о ${selectedTime}`,
@@ -210,6 +245,22 @@ function MasterProfileScreen({ route }) {
         },
       ],
     );
+  };
+
+  const handleConsultation = () => {
+    // 1. Створюємо чат
+    startChat(master.name);
+
+    // 2. Переходимо в список чатів, а потім в сам чат
+    // (initial: false змушує навігатор побудувати правильну історію)
+    navigation.navigate("Main", {
+      screen: "Чат",
+      params: {
+        screen: "ChatDetail",
+        params: { name: master.name },
+        initial: false,
+      },
+    });
   };
 
   return (
@@ -333,10 +384,14 @@ function MasterProfileScreen({ route }) {
       <View style={styles.stickyFooter}>
         <TouchableOpacity
           style={[styles.primaryBtn, { flex: 1, marginRight: 10 }]}
+          onPress={() => {}}
         >
           <Text style={styles.primaryBtnText}>Вибрати дату</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]}>
+        <TouchableOpacity
+          style={[styles.secondaryBtn, { flex: 1 }]}
+          onPress={handleConsultation}
+        >
           <Text style={styles.secondaryBtnText}>Консультація</Text>
         </TouchableOpacity>
       </View>
@@ -553,39 +608,65 @@ function BookingsScreen() {
 // 4. ЧАТИ
 function ChatListScreen() {
   const navigation = useNavigation();
+  // Беремо чати з контексту
+  const { chats } = useContext(BookingsContext);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Листування</Text>
       </View>
-      <FlatList
-        data={CHATS}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.chatRow}
-            onPress={() =>
-              navigation.navigate("ChatDetail", { name: item.name })
-            }
-          >
-            <View style={styles.avatarPlaceholder} />
-            <View style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}>
-              <Text style={{ fontSize: 16, fontWeight: "600" }}>
-                {item.name}
-              </Text>
-              <Text style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
-                Натисніть, щоб написати...
-              </Text>
-            </View>
-            {item.unread > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{item.unread}</Text>
+
+      {/* Якщо чатів немає - показуємо напис, якщо є - список */}
+      {chats.length === 0 ? (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: 50,
+          }}
+        >
+          <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
+          <Text style={{ color: "#999", marginTop: 10 }}>
+            У вас поки немає чатів
+          </Text>
+          <Text style={{ color: "#999", fontSize: 12 }}>
+            Замовте консультацію у майстра
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={chats}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.chatRow}
+              onPress={() =>
+                navigation.navigate("ChatDetail", { name: item.name })
+              }
+            >
+              <View style={styles.avatarPlaceholder} />
+              <View
+                style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                <Text style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
+                  Натисніть, щоб написати...
+                </Text>
               </View>
-            )}
-          </TouchableOpacity>
-        )}
-      />
+              {item.unread > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -625,8 +706,9 @@ function ChatDetailScreen({ route }) {
           },
         ]}
       >
+        {/* 👇 ТУТ ЗМІНА: Кнопка тепер веде конкретно в СПИСОК */}
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("ChatList")}
           style={{ flexDirection: "row", alignItems: "center" }}
         >
           <Ionicons name="arrow-back" size={24} color="black" />
@@ -642,6 +724,7 @@ function ChatDetailScreen({ route }) {
         </TouchableOpacity>
       </View>
 
+      {/* Далі все без змін... */}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -909,19 +992,11 @@ function BottomTabs() {
 }
 
 export default function App() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = `${tomorrow.getDate()}.${tomorrow.getMonth() + 1}.${tomorrow.getFullYear()}`;
+  // 1. Початковий стан записів тепер ПУСТИЙ []
+  const [bookings, setBookings] = useState([]);
 
-  const [bookings, setBookings] = useState([
-    {
-      id: "1",
-      date: `${tomorrowStr} о 18:30`,
-      master: "Мельник Олена",
-      address: "Київ, проспект. Червоної Калини 14/13",
-      status: "active",
-    },
-  ]);
+  // 2. Початковий стан чатів теж ПУСТИЙ []
+  const [chats, setChats] = useState([]);
 
   const addBooking = (newBooking) => {
     setBookings((prev) => [newBooking, ...prev]);
@@ -935,6 +1010,47 @@ export default function App() {
     );
   };
 
+  // 3. Функція, яка створює чат, якщо його ще немає
+  const startChat = (masterName) => {
+    // Перевіряємо, чи вже є чат з таким ім'ям
+    const exists = chats.find((c) => c.name === masterName);
+
+    if (!exists) {
+      const newChat = {
+        id: Date.now().toString(),
+        name: masterName,
+        unread: 0,
+      };
+      setChats((prev) => [newChat, ...prev]);
+    }
+  };
+
+  // Передаємо chats та startChat у контекст, щоб інші екрани їх бачили
+  return (
+    <BookingsContext.Provider
+      value={{ bookings, addBooking, cancelBooking, chats, startChat }}
+    >
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Main" component={BottomTabs} />
+          <Stack.Screen name="MasterProfile" component={MasterProfileScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </BookingsContext.Provider>
+  );
+}
+
+const addBooking = (newBooking) => {
+  setBookings((prev) => [newBooking, ...prev]);
+};
+
+const cancelBooking = (id) => {
+  setBookings((prev) =>
+    prev.map((item) =>
+      item.id === id ? { ...item, status: "cancelled" } : item,
+    ),
+  );
+
   return (
     <BookingsContext.Provider value={{ bookings, addBooking, cancelBooking }}>
       <NavigationContainer>
@@ -945,4 +1061,4 @@ export default function App() {
       </NavigationContainer>
     </BookingsContext.Provider>
   );
-}
+};
