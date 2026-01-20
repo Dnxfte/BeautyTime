@@ -43,3 +43,5 @@ yarn-error.*
 
 # supabase 
 supabaseConfig.js
+
+.env
