@@ -22,14 +22,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
 // ПІДКЛЮЧАЄМО СТИЛІ
-// Важливо: ми імпортуємо об'єкт styles, а не функцію getStyles
 import { styles } from "./styles";
 
 // --- КОНТЕКСТ ---
 const BookingsContext = createContext();
 
 // --- ДАНІ (MOCK DATA) ---
-
 const CITIES = [
   "Київ",
   "Львів",
@@ -100,21 +98,16 @@ const getNextDays = () => {
 // 1. ГОЛОВНА
 function HomeScreen() {
   const navigation = useNavigation();
-
-  // Стан для даних
   const [masters, setMasters] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Завантаження даних при запуску
   useEffect(() => {
     fetchMasters();
   }, []);
 
-  // Запит до Supabase
   const fetchMasters = async () => {
     try {
       const { data, error } = await supabase.from("masters").select("*");
-
       if (error) {
         console.error("Помилка завантаження:", error);
       } else {
@@ -128,9 +121,9 @@ function HomeScreen() {
   };
 
   const renderMasterItem = ({ item }) => {
-    // Розбиваємо текст тегів на масив ("Манікюр, Стрижка" -> ["Манікюр", "Стрижка"])
-    // Якщо тегів немає, робимо пустий список
-    const tagsList = item.tags ? item.tags.split(',').map(tag => tag.trim()) : [];
+    const tagsList = item.tags
+      ? item.tags.split(",").map((tag) => tag.trim())
+      : [];
 
     return (
       <TouchableOpacity
@@ -138,19 +131,20 @@ function HomeScreen() {
         activeOpacity={0.9}
         onPress={() => navigation.navigate("MasterProfile", { master: item })}
       >
-        {/* Верхня частина: Аватар + Ім'я + Рейтинг */}
         <View style={styles.cardHeader}>
           <View style={styles.avatarPlaceholder} />
           <View style={styles.masterInfo}>
             <Text style={styles.masterName}>{item.name}</Text>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-               <Text style={styles.ratingText}>★ {item.rating || 0} / 5</Text>
-               <Text style={styles.reviewsText}> ({item.reviews || 0} відгуки)</Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={styles.ratingText}>★ {item.rating || 0} / 5</Text>
+              <Text style={styles.reviewsText}>
+                {" "}
+                ({item.reviews || 0} відгуки)
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Теги (послуги) */}
         {tagsList.length > 0 && (
           <View style={styles.tagsRow}>
             {tagsList.map((tag, index) => (
@@ -161,16 +155,14 @@ function HomeScreen() {
           </View>
         )}
 
-        {/* Галерея (3 сірі квадрати, як на дизайні) */}
         <View style={styles.galleryRow}>
-           <View style={styles.galleryPlaceholder} />
-           <View style={styles.galleryPlaceholder} />
-           <View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
         </View>
 
-        {/* Нижня частина: Адреса і Час */}
         <View style={styles.footerInfo}>
-          <View style={[styles.infoRow, {marginBottom: 4}]}>
+          <View style={[styles.infoRow, { marginBottom: 4 }]}>
             <Ionicons
               name="location-outline"
               size={16}
@@ -179,16 +171,17 @@ function HomeScreen() {
             />
             <Text style={styles.infoText}>{item.address}</Text>
           </View>
-          
           {item.next_slot && (
             <View style={styles.infoRow}>
-                <Ionicons
+              <Ionicons
                 name="time-outline"
                 size={16}
                 color="#000"
                 style={{ marginRight: 4 }}
-                />
-                <Text style={styles.infoText}>Найближча дата: {item.next_slot}</Text>
+              />
+              <Text style={styles.infoText}>
+                Найближча дата: {item.next_slot}
+              </Text>
             </View>
           )}
         </View>
@@ -199,7 +192,6 @@ function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-
       <View style={styles.headerContainer}>
         <View style={styles.searchBar}>
           <Ionicons
@@ -216,7 +208,6 @@ function HomeScreen() {
         </View>
       </View>
 
-      {/* Перевірка: завантажується чи показуємо список */}
       {loading ? (
         <View
           style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
@@ -245,50 +236,50 @@ function HomeScreen() {
 function MasterProfileScreen({ route }) {
   const navigation = useNavigation();
   const { master } = route.params;
-
-  // Дістаємо функції з контексту
   const { addBooking, startChat } = useContext(BookingsContext);
 
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [timeModalVisible, setTimeModalVisible] = useState(false);
+  const [selectedService, setSelectedService] = useState(null);
   const [dates, setDates] = useState([]);
 
   useEffect(() => {
     setDates(getNextDays());
   }, []);
 
-  // --- ЛОГІКА БРОНЮВАННЯ ---
-  // --- ЛОГІКА БРОНЮВАННЯ (ОНОВЛЕНА) ---
   const handleBooking = async () => {
-    if (dates.length === 0) return;
+    if (!selectedService) {
+      Alert.alert(
+        "Увага",
+        "Будь ласка, оберіть послугу зі списку перед записом.",
+      );
+      return;
+    }
 
     const d = dates[selectedDateIndex];
     const dateStr = `${d.day} ${d.month} ${d.fullDate.getFullYear()}`;
     const fullDateTime = `${dateStr} о ${selectedTime}`;
 
     try {
-      // 1. ВІДПРАВЛЯЄМО ЗАПИТ В БАЗУ (Ось це і є API виклик)
       const { data, error } = await supabase
-        .from('bookings')
+        .from("bookings")
         .insert([
           {
             master_name: master.name,
-            client_name: "Володимир Шепель", // Можна брати зі стану профілю
-            service_name: "Манікюр", // Тут можна додати вибір послуги
+            client_name: "Володимир Шепель",
+            service_name: selectedService.name,
             date_time: fullDateTime,
-            status: 'active'
-          }
+            status: "active",
+          },
         ])
         .select();
 
       if (error) {
-        Alert.alert("Помилка", "Не вдалося записатись. Перевірте інтернет.");
-        console.error(error);
+        Alert.alert("Помилка", "Не вдалося записатись.");
       } else {
-        // 2. Якщо успішно - оновлюємо локальний список
         const newBooking = {
-          id: data[0].id.toString(), // ID від бази
+          id: data[0].id.toString(),
           date: fullDateTime,
           master: master.name,
           address: master.address,
@@ -298,36 +289,28 @@ function MasterProfileScreen({ route }) {
 
         Alert.alert(
           "Успішно!",
-          `Ви записані до ${master.name} на ${fullDateTime}`,
+          `Ви записані на ${selectedService.name} до ${master.name}`,
           [
             {
               text: "OK",
               onPress: () => navigation.navigate("Main", { screen: "Записи" }),
             },
-          ]
+          ],
         );
       }
     } catch (e) {
-      console.log("Error sending booking:", e);
+      console.log(e);
     }
   };
 
-  // --- ЛОГІКА КОНСУЛЬТАЦІЇ ---
   const handleConsultation = () => {
     startChat(master.name);
     navigation.navigate("Main", {
       screen: "Чат",
-      params: { 
-        screen: "ChatDetail",
-        params: { name: master.name },
-        initial: false, 
-      }
+      params: { screen: "ChatDetail", params: { name: master.name } },
     });
   };
 
-  // ⚠️ ТУТ НЕ МАЄ БУТИ ЗАЙВОЇ ДУЖКИ "}"
-
-  // --- ВІЗУАЛЬНА ЧАСТИНА (RETURN) ---
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
@@ -341,66 +324,124 @@ function MasterProfileScreen({ route }) {
         </View>
 
         <View style={{ paddingHorizontal: 16 }}>
-          {/* Шапка профілю */}
-          <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start"}}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
             <View>
               <Text style={styles.detailName}>{master.name}</Text>
               <Text style={styles.ratingText}>★ {master.rating} / 5</Text>
             </View>
-            <View style={[styles.avatarPlaceholder, { width: 60, height: 60, borderRadius: 30 }]} />
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                { width: 60, height: 60, borderRadius: 30 },
+              ]}
+            />
           </View>
 
           <View style={{ marginTop: 15 }}>
-            <Text style={{ fontSize: 16, fontWeight: "500" }}>{master.salon || "Салон краси"}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
+            <Text style={{ fontSize: 16, fontWeight: "500" }}>Салон краси</Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 4,
+              }}
+            >
               <Ionicons name="location-sharp" size={16} color="black" />
-              <Text style={[styles.infoText, { marginLeft: 4 }]}>{master.address}</Text>
+              <Text style={[styles.infoText, { marginLeft: 4 }]}>
+                {master.address}
+              </Text>
             </View>
           </View>
 
           <View style={styles.mapPlaceholder} />
 
-          {/* Календар */}
           <Text style={styles.sectionTitle}>Календар для запису</Text>
           <View style={styles.calendarRow}>
             {dates.map((d, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.dateBox, selectedDateIndex === i && styles.dateBoxActive]}
+                style={[
+                  styles.dateBox,
+                  selectedDateIndex === i && styles.dateBoxActive,
+                ]}
                 onPress={() => setSelectedDateIndex(i)}
               >
-                <Text style={[styles.dateText, selectedDateIndex === i && { color: "#FFF", fontWeight: "bold" }]}>
-                  {d.day}{"\n"}{d.month}
+                <Text
+                  style={[
+                    styles.dateText,
+                    selectedDateIndex === i && {
+                      color: "#FFF",
+                      fontWeight: "bold",
+                    },
+                  ]}
+                >
+                  {d.day}
+                  {"\n"}
+                  {d.month}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Вибір часу */}
           <View style={styles.timePickerRow}>
-            <Text style={{ fontSize: 14, color: "#444" }}>Оберіть бажаний час:</Text>
-            <TouchableOpacity style={styles.timeSelect} onPress={() => setTimeModalVisible(true)}>
+            <Text style={{ fontSize: 14, color: "#444" }}>
+              Оберіть бажаний час:
+            </Text>
+            <TouchableOpacity
+              style={styles.timeSelect}
+              onPress={() => setTimeModalVisible(true)}
+            >
               <Text style={{ fontWeight: "bold" }}>{selectedTime}</Text>
               <Ionicons name="chevron-down" size={16} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleBooking}>
-            <Text style={styles.primaryBtnText}>Записатись</Text>
-          </TouchableOpacity>
-
-          {/* Послуги з JSON */}
           <Text style={styles.sectionTitle}>Послуги</Text>
-          {(master.services && master.services.length > 0) ? (
-            master.services.map((s, i) => (
-              <View key={i} style={styles.serviceRow}>
-                <Text style={styles.serviceName}>{s.name}</Text>
-                <Text style={styles.servicePrice}>{s.price}</Text>
-              </View>
-            ))
+          {master.services && Array.isArray(master.services) ? (
+            master.services.map((s, i) => {
+              const isSelected =
+                selectedService && selectedService.name === s.name;
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    styles.serviceRow,
+                    isSelected && {
+                      backgroundColor: "#E0E0E0",
+                      borderColor: "#000",
+                      borderWidth: 1,
+                    },
+                  ]}
+                  onPress={() => setSelectedService(s)}
+                >
+                  <Text
+                    style={[
+                      styles.serviceName,
+                      isSelected && { fontWeight: "bold" },
+                    ]}
+                  >
+                    {s.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.servicePrice,
+                      isSelected && { fontWeight: "bold" },
+                    ]}
+                  >
+                    {s.price}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
           ) : (
-            <Text style={{color: '#888', fontStyle: 'italic', marginTop: 5, marginBottom: 10}}>
-              Список послуг не вказано
+            <Text style={{ color: "#888", fontStyle: "italic", marginTop: 5 }}>
+              Оберіть послугу зі списку (список пустий)
             </Text>
           )}
 
@@ -413,17 +454,21 @@ function MasterProfileScreen({ route }) {
         </View>
       </ScrollView>
 
-      {/* Нижня панель кнопок */}
       <View style={styles.stickyFooter}>
-        <TouchableOpacity style={[styles.primaryBtn, { flex: 1, marginRight: 10 }]} onPress={() => {}}>
-          <Text style={styles.primaryBtnText}>Вибрати дату</Text>
+        <TouchableOpacity
+          style={[styles.primaryBtn, { flex: 1, marginRight: 10 }]}
+          onPress={handleBooking}
+        >
+          <Text style={styles.primaryBtnText}>Записатись</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleConsultation}>
+        <TouchableOpacity
+          style={[styles.secondaryBtn, { flex: 1 }]}
+          onPress={handleConsultation}
+        >
           <Text style={styles.secondaryBtnText}>Консультація</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Модальне вікно часу */}
       <Modal visible={timeModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -444,7 +489,10 @@ function MasterProfileScreen({ route }) {
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity onPress={() => setTimeModalVisible(false)} style={{ marginTop: 20, alignSelf: "center" }}>
+            <TouchableOpacity
+              onPress={() => setTimeModalVisible(false)}
+              style={{ marginTop: 20, alignSelf: "center" }}
+            >
               <Text style={{ color: "red", fontSize: 16 }}>Скасувати</Text>
             </TouchableOpacity>
           </View>
@@ -455,13 +503,9 @@ function MasterProfileScreen({ route }) {
 }
 
 // 3. ЗАПИСИ
-// 3. ЗАПИСИ (Оновлена версія)
 function BookingsScreen() {
-  const navigation = useNavigation(); // <--- 1. ДОДАЛИ ЦЕ (важливо!)
-  
-  // <--- 2. ДОДАЛИ startChat ТУТ 👇
+  const navigation = useNavigation();
   const { bookings, cancelBooking, startChat } = useContext(BookingsContext);
-  
   const [activeTab, setActiveTab] = useState("active");
 
   const filteredBookings = bookings.filter((item) => {
@@ -476,26 +520,48 @@ function BookingsScreen() {
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Мої записи</Text>
       </View>
-      
-      {/* ... Тут твій код табів (Активні/Скасовані/Архів) без змін ... */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === "active" && styles.tabBtnActive]}
           onPress={() => setActiveTab("active")}
         >
-          <Text style={activeTab === "active" ? { color: "#FFF" } : { color: "#000" }}>Активні</Text>
+          <Text
+            style={
+              activeTab === "active" ? { color: "#FFF" } : { color: "#000" }
+            }
+          >
+            Активні
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === "cancelled" && styles.tabBtnActive]}
+          style={[
+            styles.tabBtn,
+            activeTab === "cancelled" && styles.tabBtnActive,
+          ]}
           onPress={() => setActiveTab("cancelled")}
         >
-          <Text style={activeTab === "cancelled" ? { color: "#FFF" } : { color: "#000" }}>Скасовані</Text>
+          <Text
+            style={
+              activeTab === "cancelled" ? { color: "#FFF" } : { color: "#000" }
+            }
+          >
+            Скасовані
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === "history" && styles.tabBtnActive]}
+          style={[
+            styles.tabBtn,
+            activeTab === "history" && styles.tabBtnActive,
+          ]}
           onPress={() => setActiveTab("history")}
         >
-          <Text style={activeTab === "history" ? { color: "#FFF" } : { color: "#000" }}>Архів</Text>
+          <Text
+            style={
+              activeTab === "history" ? { color: "#FFF" } : { color: "#000" }
+            }
+          >
+            Архів
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -505,68 +571,115 @@ function BookingsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <View style={[styles.card, { opacity: item.status === "cancelled" ? 0.7 : 1 }]}>
-              {/* ... Верхня частина картки без змін ... */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <View
+              style={[
+                styles.card,
+                { opacity: item.status === "cancelled" ? 0.7 : 1 },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Text style={{ fontWeight: "bold" }}>{item.date}</Text>
                 {item.status === "cancelled" && (
-                  <Text style={{ color: "red", fontWeight: "bold" }}>СКАСОВАНО</Text>
+                  <Text style={{ color: "red", fontWeight: "bold" }}>
+                    СКАСОВАНО
+                  </Text>
                 )}
-                {item.status !== "cancelled" && <Ionicons name="ellipsis-horizontal" size={20} />}
+                {item.status !== "cancelled" && (
+                  <Ionicons name="ellipsis-horizontal" size={20} />
+                )}
               </View>
-              
-              <View style={{ flexDirection: "row", marginTop: 10, alignItems: "center" }}>
-                <View style={[styles.avatarPlaceholder, { width: 40, height: 40 }]} />
-                <Text style={{ marginLeft: 10, fontSize: 16, fontWeight: "600" }}>{item.master}</Text>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  marginTop: 10,
+                  alignItems: "center",
+                }}
+              >
+                <View
+                  style={[styles.avatarPlaceholder, { width: 40, height: 40 }]}
+                />
+                <Text
+                  style={{ marginLeft: 10, fontSize: 16, fontWeight: "600" }}
+                >
+                  {item.master}
+                </Text>
               </View>
-              
+
               <View style={{ flexDirection: "row", marginTop: 10 }}>
                 <Ionicons name="location-sharp" size={16} />
-                <Text style={{ marginLeft: 5, color: "#555" }}>{item.address}</Text>
+                <Text style={{ marginLeft: 5, color: "#555" }}>
+                  {item.address}
+                </Text>
               </View>
 
               {item.status === "active" && (
                 <View style={styles.bookingActions}>
                   <TouchableOpacity
-                    style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginRight: 20,
+                    }}
                     onPress={() => {
-                      Alert.alert("Скасувати?", "Запис буде переміщено у вкладку 'Скасовані'", [
-                        { text: "Ні", style: "cancel" },
-                        { text: "Так", onPress: () => cancelBooking(item.id) },
-                      ]);
+                      Alert.alert(
+                        "Скасувати?",
+                        "Запис буде переміщено у вкладку 'Скасовані'",
+                        [
+                          { text: "Ні", style: "cancel" },
+                          {
+                            text: "Так",
+                            onPress: () => cancelBooking(item.id),
+                          },
+                        ],
+                      );
                     }}
                   >
-                    <Ionicons name="close-circle-outline" size={18} color="red" />
-                    <Text style={{ marginLeft: 4, color: "red" }}>Скасувати</Text>
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={18}
+                      color="red"
+                    />
+                    <Text style={{ marginLeft: 4, color: "red" }}>
+                      Скасувати
+                    </Text>
                   </TouchableOpacity>
-
-                  {/* 👇👇👇 ОСЬ ТУТ МИ ЛАГОДИМО КНОПКУ 👇👇👇 */}
                   <TouchableOpacity
                     style={{ flexDirection: "row", alignItems: "center" }}
                     onPress={() => {
-                      // 1. Створюємо чат, якщо його немає
-                      startChat(item.master); 
-                      // 2. Переходимо: Вкладка "Чат" -> Екран "ChatDetail" -> Параметр "name"
+                      startChat(item.master);
                       navigation.navigate("Чат", {
                         screen: "ChatDetail",
-                        params: { name: item.master }
+                        params: { name: item.master },
                       });
                     }}
                   >
                     <Ionicons name="chatbubble-outline" size={18} />
                     <Text style={{ marginLeft: 4 }}>Написати в чат</Text>
                   </TouchableOpacity>
-                  {/* 👆👆👆 КІНЕЦЬ ВИПРАВЛЕННЯ 👆👆👆 */}
-                  
                 </View>
               )}
             </View>
           )}
         />
       ) : (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", marginTop: 50 }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: 50,
+          }}
+        >
           <Ionicons name="file-tray-outline" size={48} color="#CCC" />
-          <Text style={{ color: "#999", marginTop: 10 }}>У цьому розділі порожньо</Text>
+          <Text style={{ color: "#999", marginTop: 10 }}>
+            У цьому розділі порожньо
+          </Text>
         </View>
       )}
     </SafeAreaView>
@@ -579,28 +692,24 @@ function ChatListScreen() {
   const [loadedChats, setLoadedChats] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 👇 НОВЕ: Завантажуємо список унікальних чатів
   useEffect(() => {
     const fetchChats = async () => {
-      // Цей запит хитрий: беремо всі повідомлення, щоб знайти унікальні імена майстрів
       const { data, error } = await supabase
-        .from('messages')
-        .select('chat_id, created_at, text')
-        .order('created_at', { ascending: false });
+        .from("messages")
+        .select("chat_id, created_at, text")
+        .order("created_at", { ascending: false });
 
       if (!error && data) {
-        // Фільтруємо унікальні чати (лишаємо тільки останнє повідомлення для кожного майстра)
         const uniqueChats = [];
         const seen = new Set();
-
-        data.forEach(msg => {
+        data.forEach((msg) => {
           if (!seen.has(msg.chat_id)) {
             seen.add(msg.chat_id);
             uniqueChats.push({
-              id: msg.chat_id, // Використовуємо ім'я як ID
+              id: msg.chat_id,
               name: msg.chat_id,
               lastMessage: msg.text,
-              unread: 0 
+              unread: 0,
             });
           }
         });
@@ -610,8 +719,6 @@ function ChatListScreen() {
     };
 
     fetchChats();
-    
-    // Оновлюємо список кожні 5 секунд (простий варіант для MVP)
     const interval = setInterval(fetchChats, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -621,29 +728,43 @@ function ChatListScreen() {
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Листування</Text>
       </View>
-
       {loading ? (
-        <ActivityIndicator size="large" color="#000" style={{marginTop: 50}} />
+        <ActivityIndicator
+          size="large"
+          color="#000"
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={loadedChats}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 16 }}
           ListEmptyComponent={
-             <View style={{ alignItems: "center", marginTop: 50 }}>
-                <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
-                <Text style={{ color: "#999", marginTop: 10 }}>Поки немає діалогів</Text>
-             </View>
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
+              <Text style={{ color: "#999", marginTop: 10 }}>
+                Поки немає діалогів
+              </Text>
+            </View>
           }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.chatRow}
-              onPress={() => navigation.navigate("ChatDetail", { name: item.name })}
+              onPress={() =>
+                navigation.navigate("ChatDetail", { name: item.name })
+              }
             >
               <View style={styles.avatarPlaceholder} />
-              <View style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}>
-                <Text style={{ fontSize: 16, fontWeight: "600" }}>{item.name}</Text>
-                <Text numberOfLines={1} style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
+              <View
+                style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: "#999", fontSize: 13, marginTop: 2 }}
+                >
                   {item.lastMessage}
                 </Text>
               </View>
@@ -661,28 +782,34 @@ function ChatDetailScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
 
-  // 👇 НОВЕ: Завантажуємо історію при відкритті
   useEffect(() => {
     fetchHistory();
-
-    // (Опціонально) Підписка, щоб повідомлення приходили в реальному часі
     const channel = supabase
-      .channel('realtime_messages')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages', 
-        filter: `chat_id=eq.${name}` 
-      }, (payload) => {
-        // Коли хтось (навіть я з адмінки) пише - додаємо в список
-        const newMsg = payload.new;
-        setMessages((prev) => [{
-          id: newMsg.id.toString(),
-          text: newMsg.text,
-          isMe: newMsg.sender === 'client',
-          time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }, ...prev]);
-      })
+      .channel("realtime_messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${name}`,
+        },
+        (payload) => {
+          const newMsg = payload.new;
+          setMessages((prev) => [
+            {
+              id: newMsg.id.toString(),
+              text: newMsg.text,
+              isMe: newMsg.sender === "client",
+              time: new Date(newMsg.created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+            ...prev,
+          ]);
+        },
+      )
       .subscribe();
 
     return () => {
@@ -692,22 +819,24 @@ function ChatDetailScreen({ route }) {
 
   const fetchHistory = async () => {
     const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', name) // Беремо переписку тільки з ЦИМ майстром
-      .order('created_at', { ascending: false }); // Нові зверху
+      .from("messages")
+      .select("*")
+      .eq("chat_id", name)
+      .order("created_at", { ascending: false });
 
     if (!error && data) {
-      const formatted = data.map(m => ({
+      const formatted = data.map((m) => ({
         id: m.id.toString(),
         text: m.text,
-        isMe: m.sender === 'client',
-        time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isMe: m.sender === "client",
+        time: new Date(m.created_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       }));
       setMessages(formatted);
     }
   };
-  // 👆 КІНЕЦЬ НОВОГО
 
   const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
@@ -715,13 +844,9 @@ function ChatDetailScreen({ route }) {
     setInputText("");
 
     try {
-      // Відправляємо в базу
-      await supabase.from('messages').insert([{
-        chat_id: name,
-        sender: 'client',
-        text: textToSend
-      }]);
-      // (Локально додавати не обов'язково, якщо є підписка вище, але для швидкості можна лишити)
+      await supabase
+        .from("messages")
+        .insert([{ chat_id: name, sender: "client", text: textToSend }]);
     } catch (e) {
       console.log(e);
     }
@@ -730,12 +855,31 @@ function ChatDetailScreen({ route }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F2F2F2" }}>
-      {/* Шапка чату */}
-      <View style={[styles.navHeader, { backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE", paddingVertical: 10 }]}>
-        <TouchableOpacity onPress={() => navigation.navigate("ChatList")} style={{ flexDirection: "row", alignItems: "center" }}>
+      <View
+        style={[
+          styles.navHeader,
+          {
+            backgroundColor: "#FFF",
+            borderBottomWidth: 1,
+            borderColor: "#EEE",
+            paddingVertical: 10,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => navigation.navigate("ChatList")}
+          style={{ flexDirection: "row", alignItems: "center" }}
+        >
           <Ionicons name="arrow-back" size={24} color="black" />
-          <View style={[styles.avatarPlaceholder, { width: 30, height: 30, marginLeft: 10 }]} />
-          <Text style={{ fontSize: 18, fontWeight: "bold", marginLeft: 10 }}>{name}</Text>
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              { width: 30, height: 30, marginLeft: 10 },
+            ]}
+          />
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginLeft: 10 }}>
+            {name}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -745,17 +889,41 @@ function ChatDetailScreen({ route }) {
         inverted
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          <Text style={{ textAlign: "center", color: "#999", marginTop: 20 }}>Немає повідомлень</Text>
+          <Text style={{ textAlign: "center", color: "#999", marginTop: 20 }}>
+            Немає повідомлень
+          </Text>
         }
         renderItem={({ item }) => (
-          <View style={[styles.messageBubble, item.isMe ? styles.myMessage : styles.theirMessage]}>
-            <Text style={[styles.messageText, item.isMe ? { color: "#FFF" } : { color: "#000" }]}>{item.text}</Text>
-            <Text style={[styles.messageTime, item.isMe ? { color: "#CCC" } : { color: "#666" }]}>{item.time}</Text>
+          <View
+            style={[
+              styles.messageBubble,
+              item.isMe ? styles.myMessage : styles.theirMessage,
+            ]}
+          >
+            <Text
+              style={[
+                styles.messageText,
+                item.isMe ? { color: "#FFF" } : { color: "#000" },
+              ]}
+            >
+              {item.text}
+            </Text>
+            <Text
+              style={[
+                styles.messageTime,
+                item.isMe ? { color: "#CCC" } : { color: "#666" },
+              ]}
+            >
+              {item.time}
+            </Text>
           </View>
         )}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={10}
+      >
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.chatInput}
@@ -976,11 +1144,9 @@ function BottomTabs() {
   );
 }
 
+// --- ОСНОВНИЙ КОМПОНЕНТ APP ---
 export default function App() {
-  // 1. Початковий стан записів тепер ПУСТИЙ []
   const [bookings, setBookings] = useState([]);
-
-  // 2. Початковий стан чатів теж ПУСТИЙ []
   const [chats, setChats] = useState([]);
 
   const addBooking = (newBooking) => {
@@ -995,11 +1161,8 @@ export default function App() {
     );
   };
 
-  // 3. Функція, яка створює чат, якщо його ще немає
   const startChat = (masterName) => {
-    // Перевіряємо, чи вже є чат з таким ім'ям
     const exists = chats.find((c) => c.name === masterName);
-
     if (!exists) {
       const newChat = {
         id: Date.now().toString(),
@@ -1010,7 +1173,6 @@ export default function App() {
     }
   };
 
-  // Передаємо chats та startChat у контекст, щоб інші екрани їх бачили
   return (
     <BookingsContext.Provider
       value={{ bookings, addBooking, cancelBooking, chats, startChat }}
@@ -1024,26 +1186,3 @@ export default function App() {
     </BookingsContext.Provider>
   );
 }
-
-const addBooking = (newBooking) => {
-  setBookings((prev) => [newBooking, ...prev]);
-};
-
-const cancelBooking = (id) => {
-  setBookings((prev) =>
-    prev.map((item) =>
-      item.id === id ? { ...item, status: "cancelled" } : item,
-    ),
-  );
-
-  return (
-    <BookingsContext.Provider value={{ bookings, addBooking, cancelBooking }}>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Main" component={BottomTabs} />
-          <Stack.Screen name="MasterProfile" component={MasterProfileScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </BookingsContext.Provider>
-  );
-};
