@@ -57,6 +57,7 @@ const getNextDays = () => {
 // --- ЕКРАНИ ---
 
 // 1. ГОЛОВНА
+// 1. ГОЛОВНА (Виправлено відображення відгуків)
 function HomeScreen() {
   const navigation = useNavigation();
   const [masters, setMasters] = useState([]);
@@ -98,7 +99,11 @@ function HomeScreen() {
             <Text style={styles.masterName}>{item.name}</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={styles.ratingText}>★ {item.rating || 0} / 5</Text>
-              <Text style={styles.reviewsText}> ({item.reviews || 0} відгуки)</Text>
+              
+              {/* 👇👇👇 ОСЬ ТУТ БУЛА ПОМИЛКА 👇👇👇 */}
+              {/* Було item.reviews, а треба item.reviews_count */}
+              <Text style={styles.reviewsText}> ({item.reviews_count || 0} відгуки)</Text>
+              
             </View>
           </View>
         </View>
@@ -114,7 +119,9 @@ function HomeScreen() {
         )}
 
         <View style={styles.galleryRow}>
-          <View style={styles.galleryPlaceholder} /><View style={styles.galleryPlaceholder} /><View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
+          <View style={styles.galleryPlaceholder} />
         </View>
 
         <View style={styles.footerInfo}>
