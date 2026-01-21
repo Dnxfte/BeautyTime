@@ -259,32 +259,57 @@ function MasterProfileScreen({ route }) {
   }, []);
 
   // --- ЛОГІКА БРОНЮВАННЯ ---
-  const handleBooking = () => {
+  // --- ЛОГІКА БРОНЮВАННЯ (ОНОВЛЕНА) ---
+  const handleBooking = async () => {
     if (dates.length === 0) return;
 
     const d = dates[selectedDateIndex];
     const dateStr = `${d.day} ${d.month} ${d.fullDate.getFullYear()}`;
+    const fullDateTime = `${dateStr} о ${selectedTime}`;
 
-    const newBooking = {
-      id: Date.now().toString(),
-      date: `${dateStr} о ${selectedTime}`,
-      master: master.name,
-      address: master.address,
-      status: "active",
-    };
+    try {
+      // 1. ВІДПРАВЛЯЄМО ЗАПИТ В БАЗУ (Ось це і є API виклик)
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([
+          {
+            master_name: master.name,
+            client_name: "Володимир Шепель", // Можна брати зі стану профілю
+            service_name: "Манікюр", // Тут можна додати вибір послуги
+            date_time: fullDateTime,
+            status: 'active'
+          }
+        ])
+        .select();
 
-    addBooking(newBooking);
+      if (error) {
+        Alert.alert("Помилка", "Не вдалося записатись. Перевірте інтернет.");
+        console.error(error);
+      } else {
+        // 2. Якщо успішно - оновлюємо локальний список
+        const newBooking = {
+          id: data[0].id.toString(), // ID від бази
+          date: fullDateTime,
+          master: master.name,
+          address: master.address,
+          status: "active",
+        };
+        addBooking(newBooking);
 
-    Alert.alert(
-      "Успішно!",
-      `Ви записані до ${master.name} на ${dateStr} о ${selectedTime}`,
-      [
-        {
-          text: "OK",
-          onPress: () => navigation.navigate("Main", { screen: "Записи" }),
-        },
-      ],
-    );
+        Alert.alert(
+          "Успішно!",
+          `Ви записані до ${master.name} на ${fullDateTime}`,
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.navigate("Main", { screen: "Записи" }),
+            },
+          ]
+        );
+      }
+    } catch (e) {
+      console.log("Error sending booking:", e);
+    }
   };
 
   // --- ЛОГІКА КОНСУЛЬТАЦІЇ ---
@@ -430,8 +455,13 @@ function MasterProfileScreen({ route }) {
 }
 
 // 3. ЗАПИСИ
+// 3. ЗАПИСИ (Оновлена версія)
 function BookingsScreen() {
-  const { bookings, cancelBooking } = useContext(BookingsContext);
+  const navigation = useNavigation(); // <--- 1. ДОДАЛИ ЦЕ (важливо!)
+  
+  // <--- 2. ДОДАЛИ startChat ТУТ 👇
+  const { bookings, cancelBooking, startChat } = useContext(BookingsContext);
+  
   const [activeTab, setActiveTab] = useState("active");
 
   const filteredBookings = bookings.filter((item) => {
@@ -446,50 +476,26 @@ function BookingsScreen() {
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Мої записи</Text>
       </View>
+      
+      {/* ... Тут твій код табів (Активні/Скасовані/Архів) без змін ... */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tabBtn, activeTab === "active" && styles.tabBtnActive]}
           onPress={() => setActiveTab("active")}
         >
-          <Text
-            style={
-              activeTab === "active" ? { color: "#FFF" } : { color: "#000" }
-            }
-          >
-            Активні
-          </Text>
+          <Text style={activeTab === "active" ? { color: "#FFF" } : { color: "#000" }}>Активні</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[
-            styles.tabBtn,
-            activeTab === "cancelled" && styles.tabBtnActive,
-          ]}
+          style={[styles.tabBtn, activeTab === "cancelled" && styles.tabBtnActive]}
           onPress={() => setActiveTab("cancelled")}
         >
-          <Text
-            style={
-              activeTab === "cancelled" ? { color: "#FFF" } : { color: "#000" }
-            }
-          >
-            Скасовані
-          </Text>
+          <Text style={activeTab === "cancelled" ? { color: "#FFF" } : { color: "#000" }}>Скасовані</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[
-            styles.tabBtn,
-            activeTab === "history" && styles.tabBtnActive,
-          ]}
+          style={[styles.tabBtn, activeTab === "history" && styles.tabBtnActive]}
           onPress={() => setActiveTab("history")}
         >
-          <Text
-            style={
-              activeTab === "history" ? { color: "#FFF" } : { color: "#000" }
-            }
-          >
-            Архів
-          </Text>
+          <Text style={activeTab === "history" ? { color: "#FFF" } : { color: "#000" }}>Архів</Text>
         </TouchableOpacity>
       </View>
 
@@ -499,106 +505,68 @@ function BookingsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <View
-              style={[
-                styles.card,
-                { opacity: item.status === "cancelled" ? 0.7 : 1 },
-              ]}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-              >
+            <View style={[styles.card, { opacity: item.status === "cancelled" ? 0.7 : 1 }]}>
+              {/* ... Верхня частина картки без змін ... */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <Text style={{ fontWeight: "bold" }}>{item.date}</Text>
                 {item.status === "cancelled" && (
-                  <Text style={{ color: "red", fontWeight: "bold" }}>
-                    СКАСОВАНО
-                  </Text>
+                  <Text style={{ color: "red", fontWeight: "bold" }}>СКАСОВАНО</Text>
                 )}
-                {item.status !== "cancelled" && (
-                  <Ionicons name="ellipsis-horizontal" size={20} />
-                )}
+                {item.status !== "cancelled" && <Ionicons name="ellipsis-horizontal" size={20} />}
               </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  marginTop: 10,
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={[styles.avatarPlaceholder, { width: 40, height: 40 }]}
-                />
-                <Text
-                  style={{ marginLeft: 10, fontSize: 16, fontWeight: "600" }}
-                >
-                  {item.master}
-                </Text>
+              
+              <View style={{ flexDirection: "row", marginTop: 10, alignItems: "center" }}>
+                <View style={[styles.avatarPlaceholder, { width: 40, height: 40 }]} />
+                <Text style={{ marginLeft: 10, fontSize: 16, fontWeight: "600" }}>{item.master}</Text>
               </View>
+              
               <View style={{ flexDirection: "row", marginTop: 10 }}>
                 <Ionicons name="location-sharp" size={16} />
-                <Text style={{ marginLeft: 5, color: "#555" }}>
-                  {item.address}
-                </Text>
+                <Text style={{ marginLeft: 5, color: "#555" }}>{item.address}</Text>
               </View>
 
               {item.status === "active" && (
                 <View style={styles.bookingActions}>
                   <TouchableOpacity
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginRight: 20,
-                    }}
+                    style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
                     onPress={() => {
-                      Alert.alert(
-                        "Скасувати?",
-                        "Запис буде переміщено у вкладку 'Скасовані'",
-                        [
-                          { text: "Ні", style: "cancel" },
-                          {
-                            text: "Так",
-                            onPress: () => cancelBooking(item.id),
-                          },
-                        ],
-                      );
+                      Alert.alert("Скасувати?", "Запис буде переміщено у вкладку 'Скасовані'", [
+                        { text: "Ні", style: "cancel" },
+                        { text: "Так", onPress: () => cancelBooking(item.id) },
+                      ]);
                     }}
                   >
-                    <Ionicons
-                      name="close-circle-outline"
-                      size={18}
-                      color="red"
-                    />
-                    <Text style={{ marginLeft: 4, color: "red" }}>
-                      Скасувати
-                    </Text>
+                    <Ionicons name="close-circle-outline" size={18} color="red" />
+                    <Text style={{ marginLeft: 4, color: "red" }}>Скасувати</Text>
                   </TouchableOpacity>
+
+                  {/* 👇👇👇 ОСЬ ТУТ МИ ЛАГОДИМО КНОПКУ 👇👇👇 */}
                   <TouchableOpacity
                     style={{ flexDirection: "row", alignItems: "center" }}
+                    onPress={() => {
+                      // 1. Створюємо чат, якщо його немає
+                      startChat(item.master); 
+                      // 2. Переходимо: Вкладка "Чат" -> Екран "ChatDetail" -> Параметр "name"
+                      navigation.navigate("Чат", {
+                        screen: "ChatDetail",
+                        params: { name: item.master }
+                      });
+                    }}
                   >
                     <Ionicons name="chatbubble-outline" size={18} />
                     <Text style={{ marginLeft: 4 }}>Написати в чат</Text>
                   </TouchableOpacity>
+                  {/* 👆👆👆 КІНЕЦЬ ВИПРАВЛЕННЯ 👆👆👆 */}
+                  
                 </View>
               )}
             </View>
           )}
         />
       ) : (
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            marginTop: 50,
-          }}
-        >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", marginTop: 50 }}>
           <Ionicons name="file-tray-outline" size={48} color="#CCC" />
-          <Text style={{ color: "#999", marginTop: 10 }}>
-            У цьому розділі порожньо
-          </Text>
+          <Text style={{ color: "#999", marginTop: 10 }}>У цьому розділі порожньо</Text>
         </View>
       )}
     </SafeAreaView>
@@ -677,19 +645,41 @@ function ChatDetailScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
-    const newMessage = {
-      id: Date.now().toString(),
-      text: inputText,
-      isMe: true,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-    setMessages((prev) => [newMessage, ...prev]);
-    setInputText("");
+
+    const textToSend = inputText;
+    setInputText(""); // Очищаємо поле одразу, щоб було швидко
+
+    try {
+      // 1. ВІДПРАВЛЯЄМО В БАЗУ
+      const { error } = await supabase
+        .from('messages')
+        .insert([
+          {
+            chat_id: name, // Використовуємо ім'я майстра як ID чату (для простоти)
+            sender: 'client',
+            text: textToSend
+          }
+        ]);
+
+      if (error) {
+        console.error("Помилка відправки:", error);
+        alert("Не вдалося відправити");
+      } else {
+        // 2. Додаємо візуально в список
+        const newMessage = {
+          id: Date.now().toString(),
+          text: textToSend,
+          isMe: true,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+        setMessages((prev) => [newMessage, ...prev]);
+      }
+
+    } catch (e) {
+      console.log(e);
+    }
     Keyboard.dismiss();
   };
 
