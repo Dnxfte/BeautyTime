@@ -576,8 +576,45 @@ function BookingsScreen() {
 // 4. ЧАТИ
 function ChatListScreen() {
   const navigation = useNavigation();
-  // Беремо чати з контексту
-  const { chats } = useContext(BookingsContext);
+  const [loadedChats, setLoadedChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 👇 НОВЕ: Завантажуємо список унікальних чатів
+  useEffect(() => {
+    const fetchChats = async () => {
+      // Цей запит хитрий: беремо всі повідомлення, щоб знайти унікальні імена майстрів
+      const { data, error } = await supabase
+        .from('messages')
+        .select('chat_id, created_at, text')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        // Фільтруємо унікальні чати (лишаємо тільки останнє повідомлення для кожного майстра)
+        const uniqueChats = [];
+        const seen = new Set();
+
+        data.forEach(msg => {
+          if (!seen.has(msg.chat_id)) {
+            seen.add(msg.chat_id);
+            uniqueChats.push({
+              id: msg.chat_id, // Використовуємо ім'я як ID
+              name: msg.chat_id,
+              lastMessage: msg.text,
+              unread: 0 
+            });
+          }
+        });
+        setLoadedChats(uniqueChats);
+      }
+      setLoading(false);
+    };
+
+    fetchChats();
+    
+    // Оновлюємо список кожні 5 секунд (простий варіант для MVP)
+    const interval = setInterval(fetchChats, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -585,52 +622,31 @@ function ChatListScreen() {
         <Text style={styles.screenTitle}>Листування</Text>
       </View>
 
-      {/* Якщо чатів немає - показуємо напис, якщо є - список */}
-      {chats.length === 0 ? (
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            marginTop: 50,
-          }}
-        >
-          <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
-          <Text style={{ color: "#999", marginTop: 10 }}>
-            У вас поки немає чатів
-          </Text>
-          <Text style={{ color: "#999", fontSize: 12 }}>
-            Замовте консультацію у майстра
-          </Text>
-        </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" style={{marginTop: 50}} />
       ) : (
         <FlatList
-          data={chats}
+          data={loadedChats}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 16 }}
+          ListEmptyComponent={
+             <View style={{ alignItems: "center", marginTop: 50 }}>
+                <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
+                <Text style={{ color: "#999", marginTop: 10 }}>Поки немає діалогів</Text>
+             </View>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.chatRow}
-              onPress={() =>
-                navigation.navigate("ChatDetail", { name: item.name })
-              }
+              onPress={() => navigation.navigate("ChatDetail", { name: item.name })}
             >
               <View style={styles.avatarPlaceholder} />
-              <View
-                style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: "600" }}>
-                  {item.name}
-                </Text>
-                <Text style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
-                  Натисніть, щоб написати...
+              <View style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}>
+                <Text style={{ fontSize: 16, fontWeight: "600" }}>{item.name}</Text>
+                <Text numberOfLines={1} style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
+                  {item.lastMessage}
                 </Text>
               </View>
-              {item.unread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.unread}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           )}
         />
@@ -645,38 +661,67 @@ function ChatDetailScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
 
+  // 👇 НОВЕ: Завантажуємо історію при відкритті
+  useEffect(() => {
+    fetchHistory();
+
+    // (Опціонально) Підписка, щоб повідомлення приходили в реальному часі
+    const channel = supabase
+      .channel('realtime_messages')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages', 
+        filter: `chat_id=eq.${name}` 
+      }, (payload) => {
+        // Коли хтось (навіть я з адмінки) пише - додаємо в список
+        const newMsg = payload.new;
+        setMessages((prev) => [{
+          id: newMsg.id.toString(),
+          text: newMsg.text,
+          isMe: newMsg.sender === 'client',
+          time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchHistory = async () => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', name) // Беремо переписку тільки з ЦИМ майстром
+      .order('created_at', { ascending: false }); // Нові зверху
+
+    if (!error && data) {
+      const formatted = data.map(m => ({
+        id: m.id.toString(),
+        text: m.text,
+        isMe: m.sender === 'client',
+        time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }));
+      setMessages(formatted);
+    }
+  };
+  // 👆 КІНЕЦЬ НОВОГО
+
   const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
-
     const textToSend = inputText;
-    setInputText(""); // Очищаємо поле одразу, щоб було швидко
+    setInputText("");
 
     try {
-      // 1. ВІДПРАВЛЯЄМО В БАЗУ
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            chat_id: name, // Використовуємо ім'я майстра як ID чату (для простоти)
-            sender: 'client',
-            text: textToSend
-          }
-        ]);
-
-      if (error) {
-        console.error("Помилка відправки:", error);
-        alert("Не вдалося відправити");
-      } else {
-        // 2. Додаємо візуально в список
-        const newMessage = {
-          id: Date.now().toString(),
-          text: textToSend,
-          isMe: true,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-        setMessages((prev) => [newMessage, ...prev]);
-      }
-
+      // Відправляємо в базу
+      await supabase.from('messages').insert([{
+        chat_id: name,
+        sender: 'client',
+        text: textToSend
+      }]);
+      // (Локально додавати не обов'язково, якщо є підписка вище, але для швидкості можна лишити)
     } catch (e) {
       console.log(e);
     }
@@ -685,88 +730,38 @@ function ChatDetailScreen({ route }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F2F2F2" }}>
-      <View
-        style={[
-          styles.navHeader,
-          {
-            backgroundColor: "#FFF",
-            borderBottomWidth: 1,
-            borderColor: "#EEE",
-            paddingVertical: 10,
-          },
-        ]}
-      >
-        {/* 👇 ТУТ ЗМІНА: Кнопка тепер веде конкретно в СПИСОК */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate("ChatList")}
-          style={{ flexDirection: "row", alignItems: "center" }}
-        >
+      {/* Шапка чату */}
+      <View style={[styles.navHeader, { backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE", paddingVertical: 10 }]}>
+        <TouchableOpacity onPress={() => navigation.navigate("ChatList")} style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="arrow-back" size={24} color="black" />
-          <View
-            style={[
-              styles.avatarPlaceholder,
-              { width: 30, height: 30, marginLeft: 10 },
-            ]}
-          />
-          <Text style={{ fontSize: 18, fontWeight: "bold", marginLeft: 10 }}>
-            {name}
-          </Text>
+          <View style={[styles.avatarPlaceholder, { width: 30, height: 30, marginLeft: 10 }]} />
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginLeft: 10 }}>{name}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Далі все без змін... */}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
         inverted
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", marginTop: 50, opacity: 0.5 }}>
-            <Ionicons name="chatbubbles-outline" size={48} color="#999" />
-            <Text style={{ color: "#999", marginTop: 10 }}>
-              Історія повідомлень пуста.
-            </Text>
-            <Text style={{ color: "#999" }}>Напишіть перше повідомлення!</Text>
-          </View>
+          <Text style={{ textAlign: "center", color: "#999", marginTop: 20 }}>Немає повідомлень</Text>
         }
         renderItem={({ item }) => (
-          <View
-            style={[
-              styles.messageBubble,
-              item.isMe ? styles.myMessage : styles.theirMessage,
-            ]}
-          >
-            <Text
-              style={[
-                styles.messageText,
-                item.isMe ? { color: "#FFF" } : { color: "#000" },
-              ]}
-            >
-              {item.text}
-            </Text>
-            <Text
-              style={[
-                styles.messageTime,
-                item.isMe ? { color: "#CCC" } : { color: "#666" },
-              ]}
-            >
-              {item.time}
-            </Text>
+          <View style={[styles.messageBubble, item.isMe ? styles.myMessage : styles.theirMessage]}>
+            <Text style={[styles.messageText, item.isMe ? { color: "#FFF" } : { color: "#000" }]}>{item.text}</Text>
+            <Text style={[styles.messageTime, item.isMe ? { color: "#CCC" } : { color: "#666" }]}>{item.time}</Text>
           </View>
         )}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={10}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.chatInput}
             placeholder="Написати повідомлення..."
             value={inputText}
             onChangeText={setInputText}
-            multiline
           />
           <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
             <Ionicons name="arrow-up" size={20} color="#FFF" />
