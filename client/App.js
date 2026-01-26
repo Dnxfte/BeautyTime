@@ -1,5 +1,4 @@
 import React, { useState, useContext, createContext, useEffect } from "react";
-import { ActivityIndicator } from "react-native";
 import { supabase } from "./supabaseConfig";
 import {
   Text,
@@ -15,13 +14,15 @@ import {
   Platform,
   Keyboard,
   Alert,
+  Image, // ✅ Імпорт додано тут, один раз
+  ActivityIndicator,
 } from "react-native";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
-// 👇 1. ДОДАНО: Імпорти для свайпів
+// Імпорти для свайпів
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
 // ПІДКЛЮЧАЄМО СТИЛІ
@@ -38,11 +39,12 @@ const CITIES = [
   "Суми", "Миколаїв", "Херсон",
 ];
 
+// ✅ Оголошено ОДИН РАЗ тут
 const TIME_SLOTS = [
   "09:00", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00",
 ];
 
-// Генерація дат (наступні 4 дні)
+// ✅ Оголошено ОДИН РАЗ тут
 const getNextDays = () => {
   const days = [];
   const months = ["Січня", "Лютого", "Березня", "Квітня", "Травня", "Червня", "Липня", "Серпня", "Вересня", "Жовтня", "Листопада", "Грудня"];
@@ -57,7 +59,6 @@ const getNextDays = () => {
 // --- ЕКРАНИ ---
 
 // 1. ГОЛОВНА
-// 1. ГОЛОВНА (Виправлено відображення відгуків)
 function HomeScreen() {
   const navigation = useNavigation();
   const [masters, setMasters] = useState([]);
@@ -83,9 +84,7 @@ function HomeScreen() {
   };
 
   const renderMasterItem = ({ item }) => {
-    const tagsList = item.tags
-      ? item.tags.split(",").map((tag) => tag.trim())
-      : [];
+    const tagsList = item.tags ? item.tags.split(",").map((tag) => tag.trim()) : [];
 
     return (
       <TouchableOpacity
@@ -94,16 +93,22 @@ function HomeScreen() {
         onPress={() => navigation.navigate("MasterProfile", { master: item })}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.avatarPlaceholder} />
+          {/* АВАТАРКА */}
+          {item.avatar_url ? (
+            <Image 
+              source={{ uri: item.avatar_url }} 
+              style={styles.avatarPlaceholder} 
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder} />
+          )}
+
           <View style={styles.masterInfo}>
             <Text style={styles.masterName}>{item.name}</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={styles.ratingText}>★ {item.rating || 0} / 5</Text>
-              
-              {/* 👇👇👇 ОСЬ ТУТ БУЛА ПОМИЛКА 👇👇👇 */}
-              {/* Було item.reviews, а треба item.reviews_count */}
               <Text style={styles.reviewsText}> ({item.reviews_count || 0} відгуки)</Text>
-              
             </View>
           </View>
         </View>
@@ -118,10 +123,24 @@ function HomeScreen() {
           </View>
         )}
 
+        {/* ПОРТФОЛІО (Мініатюри) */}
         <View style={styles.galleryRow}>
-          <View style={styles.galleryPlaceholder} />
-          <View style={styles.galleryPlaceholder} />
-          <View style={styles.galleryPlaceholder} />
+          {item.portfolio_urls && item.portfolio_urls.length > 0 ? (
+            item.portfolio_urls.slice(0, 3).map((url, index) => (
+              <Image 
+                key={index}
+                source={{ uri: url }}
+                style={styles.galleryPlaceholder} 
+                resizeMode="cover"
+              />
+            ))
+          ) : (
+            <>
+              <View style={styles.galleryPlaceholder} />
+              <View style={styles.galleryPlaceholder} />
+              <View style={styles.galleryPlaceholder} />
+            </>
+          )}
         </View>
 
         <View style={styles.footerInfo}>
@@ -172,15 +191,18 @@ function HomeScreen() {
 function MasterProfileScreen({ route }) {
   const navigation = useNavigation();
   const { master } = route.params;
+  
   const { addBooking, startChat } = useContext(BookingsContext);
 
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [timeModalVisible, setTimeModalVisible] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
+  
   const [dates, setDates] = useState([]);
 
   useEffect(() => {
+    // Використовуємо глобальну getNextDays
     setDates(getNextDays());
   }, []);
 
@@ -214,6 +236,7 @@ function MasterProfileScreen({ route }) {
           master: master.name,
           address: master.address,
           status: "active",
+          avatar_url: master.avatar_url 
         };
         addBooking(newBooking);
         Alert.alert("Успішно!", `Ви записані на ${selectedService.name} до ${master.name}`, [{ text: "OK", onPress: () => navigation.navigate("Main", { screen: "Записи" }) }]);
@@ -225,7 +248,13 @@ function MasterProfileScreen({ route }) {
     startChat(master.name);
     navigation.navigate("Main", {
       screen: "Чат",
-      params: { screen: "ChatDetail", params: { name: master.name } },
+      params: { 
+        screen: "ChatDetail", 
+        params: { 
+            name: master.name,
+            avatar: master.avatar_url 
+        } 
+      },
     });
   };
 
@@ -243,7 +272,17 @@ function MasterProfileScreen({ route }) {
               <Text style={styles.detailName}>{master.name}</Text>
               <Text style={styles.ratingText}>★ {master.rating} / 5</Text>
             </View>
-            <View style={[styles.avatarPlaceholder, { width: 60, height: 60, borderRadius: 30 }]} />
+            
+            {/* АВАТАРКА */}
+            {master.avatar_url ? (
+                <Image 
+                    source={{ uri: master.avatar_url }}
+                    style={{ width: 60, height: 60, borderRadius: 30 }}
+                    resizeMode="cover"
+                />
+            ) : (
+                <View style={[styles.avatarPlaceholder, { width: 60, height: 60, borderRadius: 30 }]} />
+            )}
           </View>
 
           <View style={{ marginTop: 15 }}>
@@ -289,7 +328,33 @@ function MasterProfileScreen({ route }) {
           )}
 
           <Text style={styles.sectionTitle}>Портфоліо</Text>
-          <View style={styles.galleryRow}><View style={styles.galleryPlaceholder} /><View style={styles.galleryPlaceholder} /><View style={styles.galleryPlaceholder} /></View>
+          
+          {/* ПОРТФОЛІО */}
+          {master.portfolio_urls && master.portfolio_urls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 10 }}>
+                {master.portfolio_urls.map((url, index) => (
+                    <Image
+                        key={index}
+                        source={{ uri: url }}
+                        style={{
+                            width: 140,
+                            height: 180,
+                            borderRadius: 12,
+                            marginRight: 10,
+                            backgroundColor: '#f0f0f0'
+                        }}
+                        resizeMode="cover"
+                    />
+                ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.galleryRow}>
+                <View style={styles.galleryPlaceholder} />
+                <View style={styles.galleryPlaceholder} />
+                <View style={styles.galleryPlaceholder} />
+            </View>
+          )}
+
         </View>
       </ScrollView>
 
@@ -306,6 +371,7 @@ function MasterProfileScreen({ route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Оберіть час</Text>
+            {/* Використовуємо глобальний TIME_SLOTS */}
             <FlatList
               data={TIME_SLOTS}
               keyExtractor={(item) => item}
@@ -414,20 +480,17 @@ function BookingsScreen() {
   );
 }
 
-// 4. ЧАТИ (ЗМІНЕНО: Додано свайп для видалення)
+// 4. ЧАТИ
 function ChatListScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   
-  // 👇 Беремо chats і deleteChat з контексту
   const { chats, deleteChat } = useContext(BookingsContext);
 
   useEffect(() => {
-    // Просто ставимо loading false, бо чати вже приходять через контекст
     setLoading(false);
   }, []);
 
-  // 👇 Компонент червоної кнопки
   const renderRightActions = (progress, dragX, chatId) => {
     return (
       <TouchableOpacity
@@ -448,7 +511,7 @@ function ChatListScreen() {
         <ActivityIndicator size="large" color="#000" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
-          data={chats} // Використовуємо чати з контексту
+          data={chats} 
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 16 }}
           ListEmptyComponent={
@@ -458,10 +521,9 @@ function ChatListScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            // 👇 Обгорнули в Swipeable
             <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
               <TouchableOpacity
-                style={[styles.chatRow, { backgroundColor: 'white' }]} // Фон важливий
+                style={[styles.chatRow, { backgroundColor: 'white' }]} 
                 activeOpacity={1}
                 onPress={() => navigation.navigate("ChatDetail", { name: item.name })}
               >
@@ -481,7 +543,7 @@ function ChatListScreen() {
   );
 }
 
-// ДЕТАЛІ ЧАТУ (ЗМІНЕНО: Фікс перевернутого тексту)
+// ДЕТАЛІ ЧАТУ
 function ChatDetailScreen({ route }) {
   const { name } = route.params;
   const navigation = useNavigation();
@@ -559,7 +621,6 @@ function ChatDetailScreen({ route }) {
         inverted
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          // 👇 ТУТ ЗМІНА: Додали transform: scaleY(-1), щоб текст не був перевернутий
           <View style={{ transform: [{ scaleY: -1 }], alignItems: "center", marginTop: 50, opacity: 0.5 }}>
             <Ionicons name="chatbubbles-outline" size={48} color="#999" />
             <Text style={{ textAlign: "center", color: "#999", marginTop: 20 }}>
@@ -772,16 +833,12 @@ export default function App() {
     }
   };
 
-  // 👇 ДОДАНО: Функція видалення чату
   const deleteChat = async (chatId) => {
-    // Видаляємо візуально
     setChats(prev => prev.filter(c => c.id !== chatId));
-    // Видаляємо з бази
     await supabase.from('messages').delete().eq('chat_id', chatId);
   };
 
   return (
-    // 👇 ДОДАНО: Обгортка для жестів
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BookingsContext.Provider value={{ bookings, addBooking, cancelBooking, chats, startChat, deleteChat }}>
         <NavigationContainer>
