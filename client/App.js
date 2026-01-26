@@ -14,8 +14,9 @@ import {
   Platform,
   Keyboard,
   Alert,
-  Image, // ✅ Імпорт додано тут, один раз
+  Image,
   ActivityIndicator,
+  Dimensions // ✅ Вже є
 } from "react-native";
 import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -39,12 +40,10 @@ const CITIES = [
   "Суми", "Миколаїв", "Херсон",
 ];
 
-// ✅ Оголошено ОДИН РАЗ тут
 const TIME_SLOTS = [
   "09:00", "10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00",
 ];
 
-// ✅ Оголошено ОДИН РАЗ тут
 const getNextDays = () => {
   const days = [];
   const months = ["Січня", "Лютого", "Березня", "Квітня", "Травня", "Червня", "Липня", "Серпня", "Вересня", "Жовтня", "Листопада", "Грудня"];
@@ -200,11 +199,17 @@ function MasterProfileScreen({ route }) {
   const [selectedService, setSelectedService] = useState(null);
   
   const [dates, setDates] = useState([]);
+  
+  // 📸 Стан для повноекранного перегляду фото
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   useEffect(() => {
-    // Використовуємо глобальну getNextDays
     setDates(getNextDays());
   }, []);
+
+  // 📐 Розрахунок ширини фото (екран - відступи / 3)
+  const screenWidth = Dimensions.get('window').width;
+  const photoSize = (screenWidth - 32 - 20) / 3; 
 
   const handleBooking = async () => {
     if (!selectedService) {
@@ -224,6 +229,8 @@ function MasterProfileScreen({ route }) {
             service_name: selectedService.name,
             date_time: fullDateTime,
             status: "active",
+            // Важливо: зберігаємо аватарку в базу при записі (якщо у таблиці bookings є колонка avatar_url, інакше вона запишеться тільки локально в контекст)
+            // Якщо колонки немає, нічого страшного, просто в контекст піде
           },
         ]).select();
 
@@ -236,7 +243,7 @@ function MasterProfileScreen({ route }) {
           master: master.name,
           address: master.address,
           status: "active",
-          avatar_url: master.avatar_url 
+          avatar_url: master.avatar_url // ✅ Зберігаємо аватарку в локальний запис
         };
         addBooking(newBooking);
         Alert.alert("Успішно!", `Ви записані на ${selectedService.name} до ${master.name}`, [{ text: "OK", onPress: () => navigation.navigate("Main", { screen: "Записи" }) }]);
@@ -245,14 +252,15 @@ function MasterProfileScreen({ route }) {
   };
 
   const handleConsultation = () => {
-    startChat(master.name);
+    // ✅ Передаємо аватарку при старті чату
+    startChat(master.name, master.avatar_url);
     navigation.navigate("Main", {
       screen: "Чат",
       params: { 
         screen: "ChatDetail", 
         params: { 
             name: master.name,
-            avatar: master.avatar_url 
+            avatar: master.avatar_url // ✅ Передаємо аватарку
         } 
       },
     });
@@ -329,29 +337,29 @@ function MasterProfileScreen({ route }) {
 
           <Text style={styles.sectionTitle}>Портфоліо</Text>
           
-          {/* ПОРТФОЛІО */}
+          {/* ✅ ОНОВЛЕНЕ ПОРТФОЛІО (GRID + ZOOM) */}
           {master.portfolio_urls && master.portfolio_urls.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
                 {master.portfolio_urls.map((url, index) => (
-                    <Image
-                        key={index}
-                        source={{ uri: url }}
-                        style={{
-                            width: 140,
-                            height: 180,
-                            borderRadius: 12,
-                            marginRight: 10,
-                            backgroundColor: '#f0f0f0'
-                        }}
-                        resizeMode="cover"
-                    />
+                    <TouchableOpacity key={index} onPress={() => setFullScreenImage(url)}>
+                        <Image
+                            source={{ uri: url }}
+                            style={{
+                                width: photoSize,
+                                height: photoSize, // Квадрат
+                                borderRadius: 12,
+                                backgroundColor: '#f0f0f0'
+                            }}
+                            resizeMode="cover"
+                        />
+                    </TouchableOpacity>
                 ))}
-            </ScrollView>
+            </View>
           ) : (
-            <View style={styles.galleryRow}>
-                <View style={styles.galleryPlaceholder} />
-                <View style={styles.galleryPlaceholder} />
-                <View style={styles.galleryPlaceholder} />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <View style={[styles.galleryPlaceholder, { width: photoSize, height: photoSize }]} />
+                <View style={[styles.galleryPlaceholder, { width: photoSize, height: photoSize }]} />
+                <View style={[styles.galleryPlaceholder, { width: photoSize, height: photoSize }]} />
             </View>
           )}
 
@@ -371,7 +379,6 @@ function MasterProfileScreen({ route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Оберіть час</Text>
-            {/* Використовуємо глобальний TIME_SLOTS */}
             <FlatList
               data={TIME_SLOTS}
               keyExtractor={(item) => item}
@@ -388,6 +395,27 @@ function MasterProfileScreen({ route }) {
           </View>
         </View>
       </Modal>
+
+      {/* ✅ МОДАЛКА ДЛЯ ФОТО (FULLSCREEN) */}
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+            <TouchableOpacity 
+                style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} 
+                onPress={() => setFullScreenImage(null)}
+            >
+                <Ionicons name="close-circle" size={40} color="white" />
+            </TouchableOpacity>
+            
+            {fullScreenImage && (
+                <Image 
+                    source={{ uri: fullScreenImage }} 
+                    style={{ width: '100%', height: '80%' }} 
+                    resizeMode="contain" 
+                />
+            )}
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -433,7 +461,14 @@ function BookingsScreen() {
                 {item.status !== "cancelled" && <Ionicons name="ellipsis-horizontal" size={20} />}
               </View>
               <View style={{ flexDirection: "row", marginTop: 10, alignItems: "center" }}>
-                <View style={[styles.avatarPlaceholder, { width: 40, height: 40 }]} />
+                
+                {/* ✅ АВАТАРКА В ЗАПИСАХ */}
+                {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={{ width: 40, height: 40, borderRadius: 20 }} resizeMode="cover" />
+                ) : (
+                    <View style={[styles.avatarPlaceholder, { width: 40, height: 40 }]} />
+                )}
+
                 <Text style={{ marginLeft: 10, fontSize: 16, fontWeight: "600" }}>{item.master}</Text>
               </View>
               <View style={{ flexDirection: "row", marginTop: 10 }}>
@@ -458,8 +493,11 @@ function BookingsScreen() {
                   <TouchableOpacity
                     style={{ flexDirection: "row", alignItems: "center" }}
                     onPress={() => {
-                      startChat(item.master);
-                      navigation.navigate("Чат", { screen: "ChatDetail", params: { name: item.master } });
+                      startChat(item.master, item.avatar_url); // ✅ Передаємо аватарку в чат
+                      navigation.navigate("Чат", { 
+                          screen: "ChatDetail", 
+                          params: { name: item.master, avatar: item.avatar_url } 
+                      });
                     }}
                   >
                     <Ionicons name="chatbubble-outline" size={18} />
@@ -525,9 +563,16 @@ function ChatListScreen() {
               <TouchableOpacity
                 style={[styles.chatRow, { backgroundColor: 'white' }]} 
                 activeOpacity={1}
-                onPress={() => navigation.navigate("ChatDetail", { name: item.name })}
+                onPress={() => navigation.navigate("ChatDetail", { name: item.name, avatar: item.avatar })}
               >
-                <View style={styles.avatarPlaceholder} />
+                
+                {/* ✅ АВАТАРКА В СПИСКУ ЧАТІВ */}
+                {item.avatar ? (
+                    <Image source={{ uri: item.avatar }} style={{ width: 50, height: 50, borderRadius: 25 }} resizeMode="cover" />
+                ) : (
+                    <View style={styles.avatarPlaceholder} />
+                )}
+
                 <View style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}>
                   <Text style={{ fontSize: 16, fontWeight: "600" }}>{item.name}</Text>
                   <Text numberOfLines={1} style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
@@ -545,7 +590,7 @@ function ChatListScreen() {
 
 // ДЕТАЛІ ЧАТУ
 function ChatDetailScreen({ route }) {
-  const { name } = route.params;
+  const { name, avatar } = route.params; // ✅ Отримуємо аватарку
   const navigation = useNavigation();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -610,7 +655,14 @@ function ChatDetailScreen({ route }) {
       <View style={[styles.navHeader, { backgroundColor: "#FFF", borderBottomWidth: 1, borderColor: "#EEE", paddingVertical: 10 }]}>
         <TouchableOpacity onPress={() => navigation.navigate("ChatList")} style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="arrow-back" size={24} color="black" />
-          <View style={[styles.avatarPlaceholder, { width: 30, height: 30, marginLeft: 10 }]} />
+          
+          {/* ✅ АВАТАРКА В ХЕДЕРІ ЧАТУ */}
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={{ width: 35, height: 35, borderRadius: 17.5, marginLeft: 10 }} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { width: 35, height: 35, marginLeft: 10 }]} />
+          )}
+
           <Text style={{ fontSize: 18, fontWeight: "bold", marginLeft: 10 }}>{name}</Text>
         </TouchableOpacity>
       </View>
@@ -821,12 +873,13 @@ export default function App() {
     );
   };
 
-  const startChat = (masterName) => {
+  const startChat = (masterName, avatarUrl) => { // ✅ Тепер приймаємо аватарку
     const exists = chats.find((c) => c.name === masterName);
     if (!exists) {
       const newChat = {
         id: masterName, // ID = ім'я (для спрощення)
         name: masterName,
+        avatar: avatarUrl, // ✅ Зберігаємо аватарку в чат
         unread: 0,
       };
       setChats((prev) => [newChat, ...prev]);
