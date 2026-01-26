@@ -229,8 +229,6 @@ function MasterProfileScreen({ route }) {
             service_name: selectedService.name,
             date_time: fullDateTime,
             status: "active",
-            // Важливо: зберігаємо аватарку в базу при записі (якщо у таблиці bookings є колонка avatar_url, інакше вона запишеться тільки локально в контекст)
-            // Якщо колонки немає, нічого страшного, просто в контекст піде
           },
         ]).select();
 
@@ -839,50 +837,147 @@ export default function App() {
   const [bookings, setBookings] = useState([]);
   const [chats, setChats] = useState([]);
 
-  // Завантаження чатів при старті
+  // Функція для перетворення тексту дати ("26 Січня 2026 о 10:00") у справжню дату
+  const parseDateString = (dateStr) => {
+    try {
+      const monthsMap = {
+        "січня": 0, "лютого": 1, "березня": 2, "квітня": 3, "травня": 4, "червня": 5,
+        "липня": 6, "серпня": 7, "вересня": 8, "жовтня": 9, "листопада": 10, "грудня": 11,
+        "Січня": 0, "Лютого": 1, "Березня": 2, "Квітня": 3, "Травня": 4, "Червня": 5,
+        "Липня": 6, "Серпня": 7, "Вересня": 8, "Жовтня": 9, "Листопада": 10, "Грудня": 11
+      };
+
+      const parts = dateStr.split(" ");
+      if (parts.length < 5) return new Date(); 
+
+      const day = parseInt(parts[0]);
+      const month = monthsMap[parts[1]];
+      const year = parseInt(parts[2]);
+      const timeParts = parts[4].split(":");
+      const hour = parseInt(timeParts[0]);
+      const minute = parseInt(timeParts[1]);
+
+      return new Date(year, month, day, hour, minute);
+    } catch (e) {
+      return new Date();
+    }
+  };
+
+  // Завантаження даних при старті (Записи + Чати)
   useEffect(() => {
-    const fetchChats = async () => {
-      const { data, error } = await supabase.from("messages").select("chat_id, created_at, text").order("created_at", { ascending: false });
-      if (!error && data) {
-        const uniqueChats = [];
-        const seen = new Set();
-        data.forEach((msg) => {
-          if (!seen.has(msg.chat_id)) {
-            seen.add(msg.chat_id);
-            uniqueChats.push({
-              id: msg.chat_id,
-              name: msg.chat_id,
-              lastMessage: msg.text,
-              unread: 0,
+    const loadData = async () => {
+      try {
+        // 1. Спочатку завантажимо всіх майстрів (щоб брати звідси аватарки та адреси)
+        const { data: mastersData } = await supabase.from("masters").select("name, avatar_url, address");
+        
+        // Створимо "довідник" майстрів для швидкого пошуку: { "Валерія": {avatar: '...', address: '...'} }
+        const mastersMap = {};
+        if (mastersData) {
+            mastersData.forEach(m => {
+                mastersMap[m.name] = m;
             });
-          }
-        });
-        setChats(uniqueChats);
+        }
+
+        // 2. ЗАВАНТАЖУЄМО ЧАТИ І ДОДАЄМО АВАТАРКИ
+        const { data: messagesData } = await supabase
+            .from("messages")
+            .select("chat_id, created_at, text")
+            .order("created_at", { ascending: false });
+
+        if (messagesData) {
+          const uniqueChats = [];
+          const seen = new Set();
+          messagesData.forEach((msg) => {
+            if (!seen.has(msg.chat_id)) {
+              seen.add(msg.chat_id);
+              
+              // Знаходимо інфо про майстра з нашого "довідника"
+              const masterInfo = mastersMap[msg.chat_id];
+
+              uniqueChats.push({
+                id: msg.chat_id,
+                name: msg.chat_id,
+                lastMessage: msg.text,
+                // 👇 Підтягуємо аватарку з таблиці майстрів
+                avatar: masterInfo ? masterInfo.avatar_url : null, 
+                unread: 0,
+              });
+            }
+          });
+          setChats(uniqueChats);
+        }
+
+        // 3. ЗАВАНТАЖУЄМО ЗАПИСИ І ДОДАЄМО АВАТАРКИ + ПЕРЕВІРКА ДАТИ
+        const { data: bookingsData } = await supabase
+            .from("bookings")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+        if (bookingsData) {
+            const now = new Date(); // Поточний час
+
+            const formattedBookings = bookingsData.map(b => {
+                const masterInfo = mastersMap[b.master_name];
+                
+                // Перевіряємо дату
+                const bookingDate = parseDateString(b.date_time);
+                let currentStatus = b.status;
+
+                // Якщо статус "active", але дата вже пройшла -> міняємо на "history"
+                if (currentStatus === 'active' && bookingDate < now) {
+                    currentStatus = 'history';
+                }
+
+                return {
+                    id: b.id.toString(),
+                    date: b.date_time,
+                    master: b.master_name,
+                    status: currentStatus, // Використовуємо оновлений статус
+                    // 👇 Якщо в базі немає адреси/фото, беремо актуальні з таблиці майстрів
+                    address: masterInfo ? masterInfo.address : "Адреса не вказана",
+                    avatar_url: masterInfo ? masterInfo.avatar_url : null
+                };
+            });
+            setBookings(formattedBookings);
+        }
+
+      } catch (error) {
+        console.error("Помилка завантаження даних:", error);
       }
     };
-    fetchChats();
+
+    loadData();
   }, []);
 
   const addBooking = (newBooking) => {
     setBookings((prev) => [newBooking, ...prev]);
   };
 
-  const cancelBooking = (id) => {
+  const cancelBooking = async (id) => {
+    // Оновлюємо локально
     setBookings((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item))
     );
+    // Оновлюємо в базі
+    await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
   };
 
-  const startChat = (masterName, avatarUrl) => { // ✅ Тепер приймаємо аватарку
+  const startChat = (masterName, avatarUrl) => {
     const exists = chats.find((c) => c.name === masterName);
     if (!exists) {
       const newChat = {
-        id: masterName, // ID = ім'я (для спрощення)
+        id: masterName,
         name: masterName,
-        avatar: avatarUrl, // ✅ Зберігаємо аватарку в чат
+        avatar: avatarUrl,
         unread: 0,
+        lastMessage: "Початок діалогу"
       };
       setChats((prev) => [newChat, ...prev]);
+    } else {
+        // Якщо чат вже є, але у нас з'явилась свіжа аватарка (наприклад з профілю), оновимо її
+        if (avatarUrl && exists.avatar !== avatarUrl) {
+            setChats(prev => prev.map(c => c.name === masterName ? {...c, avatar: avatarUrl} : c));
+        }
     }
   };
 
