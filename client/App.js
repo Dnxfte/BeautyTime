@@ -23,7 +23,8 @@ import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from 'expo-image-picker'; // ✅ Додано для вибору фото
+import * as ImagePicker from 'expo-image-picker'; 
+import { WebView } from 'react-native-webview'; // ✅ Імпорт для карти
 
 // Імпорти для свайпів
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
@@ -56,6 +57,34 @@ const getNextDays = () => {
   }
   return days;
 };
+
+// --- ГЕНЕРАТОР HTML ДЛЯ КАРТИ LEAFLET (✅ НОВА ФУНКЦІЯ) ---
+const getLeafletHTML = (lat, lng, name) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { width: 100%; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map').setView([${lat}, ${lng}], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+    L.marker([${lat}, ${lng}]).addTo(map)
+      .bindPopup('<b>${name}</b><br>Салон краси')
+      .openPopup();
+  </script>
+</body>
+</html>
+`;
 
 // 👇👇👇 ЕКРАН АВТОРИЗАЦІЇ 👇👇👇
 function AuthScreen() {
@@ -221,6 +250,10 @@ function MasterProfileScreen({ route }) {
   const screenWidth = Dimensions.get('window').width;
   const photoSize = (screenWidth - 32 - 20) / 3; 
 
+  // ✅ КООРДИНАТИ ДЛЯ КАРТИ (Дефолт - Вінниця)
+  const mapLat = master.lat || 49.2331;
+  const mapLng = master.lng || 28.4682;
+
   const handleBooking = async () => {
     if (!selectedService) { Alert.alert("Увага", "Будь ласка, оберіть послугу зі списку перед записом."); return; }
     const d = dates[selectedDateIndex];
@@ -253,7 +286,17 @@ function MasterProfileScreen({ route }) {
             {master.avatar_url ? <Image source={{ uri: master.avatar_url }} style={{ width: 60, height: 60, borderRadius: 30 }} resizeMode="cover" /> : <View style={[styles.avatarPlaceholder, { width: 60, height: 60, borderRadius: 30 }]} />}
           </View>
           <View style={{ marginTop: 15 }}><Text style={{ fontSize: 16, fontWeight: "500" }}>Салон краси</Text><View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}><Ionicons name="location-sharp" size={16} color="black" /><Text style={[styles.infoText, { marginLeft: 4 }]}>{master.address}</Text></View></View>
-          <View style={styles.mapPlaceholder} />
+          
+          {/* ✅ КАРТА LEAFLET */}
+          <View style={{ height: 200, marginTop: 15, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#eee' }}>
+             <WebView 
+                originWhitelist={['*']}
+                source={{ html: getLeafletHTML(mapLat, mapLng, master.name) }}
+                style={{ flex: 1 }}
+                scrollEnabled={false} // Щоб не конфліктувало зі скролом сторінки
+             />
+          </View>
+
           <Text style={styles.sectionTitle}>Календар для запису</Text>
           <View style={styles.calendarRow}>{dates.map((d, i) => (<TouchableOpacity key={i} style={[styles.dateBox, selectedDateIndex === i && styles.dateBoxActive]} onPress={() => setSelectedDateIndex(i)}><Text style={[styles.dateText, selectedDateIndex === i && { color: "#FFF", fontWeight: "bold" }]}>{d.day}{"\n"}{d.month}</Text></TouchableOpacity>))}</View>
           <View style={styles.timePickerRow}><Text style={{ fontSize: 14, color: "#444" }}>Оберіть бажаний час:</Text><TouchableOpacity style={styles.timeSelect} onPress={() => setTimeModalVisible(true)}><Text style={{ fontWeight: "bold" }}>{selectedTime}</Text><Ionicons name="chevron-down" size={16} /></TouchableOpacity></View>
@@ -525,12 +568,15 @@ function ProfileScreen() {
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// 👇 ОГОЛОШУЄМО STACK ТУТ
+const MainStack = createNativeStackNavigator(); // Для навігації всередині авторизованої зони
+
 function ChatStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="ChatList" component={ChatListScreen} />
-      <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
-    </Stack.Navigator>
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="ChatList" component={ChatListScreen} />
+      <MainStack.Screen name="ChatDetail" component={ChatDetailScreen} />
+    </MainStack.Navigator>
   );
 }
 
@@ -648,10 +694,10 @@ export default function App() {
       {session ? (
         <BookingsContext.Provider value={{ bookings, addBooking, cancelBooking, chats, startChat, deleteChat, userEmail: session.user.email, userMetadata: session.user.user_metadata, refreshUser }}>
           <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Main" component={BottomTabs} />
-              <Stack.Screen name="MasterProfile" component={MasterProfileScreen} />
-            </Stack.Navigator>
+            <MainStack.Navigator screenOptions={{ headerShown: false }}>
+              <MainStack.Screen name="Main" component={BottomTabs} />
+              <MainStack.Screen name="MasterProfile" component={MasterProfileScreen} />
+            </MainStack.Navigator>
           </NavigationContainer>
         </BookingsContext.Provider>
       ) : (
