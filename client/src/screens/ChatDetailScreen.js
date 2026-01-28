@@ -10,6 +10,7 @@ import {
   TextInput,
   Keyboard,
   Platform,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -70,10 +71,16 @@ export default function ChatDetailScreen({ route }) {
   const sendMessage = async () => {
     if (inputText.trim().length === 0) return;
     const textToSend = inputText;
-    setInputText("");
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        Alert.alert("Помилка", "Потрібно увійти");
+        return;
+      }
+
+      setInputText("");
       await supabase.from("messages").insert([
-        { chat_id: chatId, sender: "client", text: textToSend },
+        { chat_id: chatId, sender: "client", text: textToSend, client_id: user?.id },
       ]);
     } catch (e) {
       console.log(e);

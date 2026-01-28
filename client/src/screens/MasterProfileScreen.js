@@ -52,12 +52,19 @@ export default function MasterProfileScreen({ route }) {
     const fullDateTime = `${d.day} ${d.month} ${d.fullDate.getFullYear()} о ${selectedTime}`;
 
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        Alert.alert("Помилка", "Потрібно увійти");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("bookings")
         .insert([
           {
             master_name: master.name,
             client_name: userEmail,
+            client_id: user?.id,
             service_name: selectedService.name,
             date_time: fullDateTime,
             status: "active",
