@@ -6,23 +6,47 @@ const BookingsContext = createContext(null);
 
 export function BookingsProvider({ children }) {
   const [session, setSession] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [bookings, setBookings] = useState([]);
   const [chats, setChats] = useState([]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    let mounted = true;
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!mounted) return;
+        setSession(session);
+        setSessionLoading(false);
+      })
+      .catch(() => {
+        if (mounted) setSessionLoading(false);
+      });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      setSessionLoading(false);
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const refreshUser = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setSession(session);
   }, []);
+
+  const getCurrentUser = useCallback(async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!error && user) return user;
+    return session?.user || null;
+  }, [session]);
+
+  const getUserEmail = useCallback(async () => {
+    const user = await getCurrentUser();
+    return user?.email || null;
+  }, [getCurrentUser]);
 
   useEffect(() => {
     let active = true;
@@ -117,15 +141,18 @@ export function BookingsProvider({ children }) {
   }, []);
 
   const cancelBooking = useCallback(async (id) => {
-    setBookings((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item))
-    );
-    await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+    const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+    if (!error) {
+      setBookings((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item))
+      );
+    }
+    return { error };
   }, []);
 
-  const startChat = useCallback((masterName, avatarUrl) => {
-    const userEmail = session?.user?.email;
-    if (!userEmail) return;
+  const startChat = useCallback((masterName, avatarUrl, userEmailOverride) => {
+    const userEmail = userEmailOverride || session?.user?.email;
+    if (!userEmail) return null;
     const uniqueChatId = `${masterName}:${userEmail}`;
     setChats((prev) => {
       if (prev.find((c) => c.id === uniqueChatId)) return prev;
@@ -138,27 +165,34 @@ export function BookingsProvider({ children }) {
       };
       return [newChat, ...prev];
     });
+    return uniqueChatId;
   }, [session]);
 
   const deleteChat = useCallback(async (chatId) => {
-    setChats((prev) => prev.filter((c) => c.id !== chatId));
-    await supabase.from("messages").delete().eq("chat_id", chatId);
+    const { error } = await supabase.from("messages").delete().eq("chat_id", chatId);
+    if (!error) {
+      setChats((prev) => prev.filter((c) => c.id !== chatId));
+    }
+    return { error };
   }, []);
 
   const value = useMemo(
     () => ({
       session,
+      sessionLoading,
       bookings,
       chats,
       addBooking,
       cancelBooking,
       startChat,
       deleteChat,
+      getCurrentUser,
+      getUserEmail,
       userEmail: session?.user?.email,
       userMetadata: session?.user?.user_metadata,
       refreshUser,
     }),
-    [session, bookings, chats, addBooking, cancelBooking, startChat, deleteChat, refreshUser]
+    [session, sessionLoading, bookings, chats, addBooking, cancelBooking, startChat, deleteChat, getCurrentUser, getUserEmail, refreshUser]
   );
 
   return <BookingsContext.Provider value={value}>{children}</BookingsContext.Provider>;

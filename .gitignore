@@ -45,3 +45,4 @@ yarn-error.*
 supabaseConfig.js
 
 .env
+supabase/.env

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
   StatusBar,
@@ -13,11 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../supabaseConfig";
 import { styles } from "../../styles";
 import MasterCard from "../components/MasterCard";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const { colors, theme } = useAppTheme();
   const [masters, setMasters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     fetchMasters();
@@ -26,7 +29,7 @@ export default function HomeScreen() {
   const fetchMasters = async () => {
     try {
       const { data, error } = await supabase.from("masters").select("*");
-      if (!error) setMasters(data);
+      if (!error) setMasters(data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -38,26 +41,43 @@ export default function HomeScreen() {
     navigation.navigate("MasterProfile", { master });
   };
 
+  const filteredMasters = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return masters;
+    return masters.filter((m) => {
+      const name = m.name || "";
+      const tags = m.tags || "";
+      const address = m.address || "";
+      return (
+        name.toLowerCase().includes(q) ||
+        tags.toLowerCase().includes(q) ||
+        address.toLowerCase().includes(q)
+      );
+    });
+  }, [masters, query]);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
       <View style={styles.headerContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#888" style={{ marginRight: 8 }} />
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="search" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Пошук майстра"
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
           />
         </View>
       </View>
       {loading ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color="#000" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : (
         <FlatList
-          data={masters}
+          data={filteredMasters}
           renderItem={({ item }) => (
             <MasterCard
               master={item}
@@ -68,7 +88,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 20, color: "gray" }}>
+            <Text style={{ textAlign: "center", marginTop: 20, color: colors.textMuted }}>
               Список пустий
             </Text>
           }

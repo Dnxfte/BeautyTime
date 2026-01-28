@@ -5,17 +5,20 @@ import HomeScreen from "../screens/HomeScreen";
 import BookingsScreen from "../screens/BookingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChatStack from "./ChatStack";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabs() {
+  const { colors } = useAppTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: { height: 70, paddingBottom: 10, backgroundColor: "#C4C4C4" },
-        tabBarActiveTintColor: "#000",
-        tabBarInactiveTintColor: "#555",
+        tabBarStyle: { height: 70, paddingBottom: 10, backgroundColor: colors.tabBar, borderTopColor: colors.border },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 10, marginTop: -5 },
         tabBarIcon: ({ focused, color }) => {
           let iconName;

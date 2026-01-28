@@ -1,28 +1,44 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import AuthScreen from "./src/screens/AuthScreen";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { BookingsProvider, useBookings } from "./src/contexts/BookingsContext";
+import { ThemeProvider, useAppTheme } from "./src/contexts/ThemeContext";
+import SplashScreen from "./src/screens/SplashScreen";
 
-function AppContent() {
-  const { session } = useBookings();
+function AppNavigator() {
+  const { sessionLoading } = useBookings();
+  const { theme, colors, isThemeLoading } = useAppTheme();
+  const navTheme = React.useMemo(() => {
+    const baseTheme = theme === "dark" ? DarkTheme : DefaultTheme;
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        background: colors.background,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+        primary: colors.accent,
+      },
+    };
+  }, [theme, colors]);
 
-  return session ? (
-    <NavigationContainer>
-      <RootNavigator />
+  return (
+    <NavigationContainer theme={navTheme}>
+      {sessionLoading || isThemeLoading ? <SplashScreen /> : <RootNavigator />}
     </NavigationContainer>
-  ) : (
-    <AuthScreen />
   );
 }
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BookingsProvider>
-        <AppContent />
-      </BookingsProvider>
+      <ThemeProvider>
+        <BookingsProvider>
+          <AppNavigator />
+        </BookingsProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

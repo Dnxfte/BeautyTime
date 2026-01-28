@@ -5,15 +5,18 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../../styles";
 import { useBookings } from "../contexts/BookingsContext";
 import ChatRow from "../components/ChatRow";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export default function ChatListScreen() {
   const navigation = useNavigation();
+  const { colors } = useAppTheme();
   const [loading, setLoading] = useState(true);
   const { chats, deleteChat } = useBookings();
 
@@ -30,16 +33,20 @@ export default function ChatListScreen() {
   };
 
   const handleChatDelete = (chat) => {
-    deleteChat(chat.id);
+    deleteChat(chat.id).then(({ error }) => {
+      if (error) {
+        Alert.alert("Помилка", "Не вдалося видалити чат");
+      }
+    });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.screenTitle}>Листування</Text>
+        <Text style={[styles.screenTitle, { color: colors.text }]}>Листування</Text>
       </View>
       {loading ? (
-        <ActivityIndicator size="large" color="#000" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={chats}
@@ -47,8 +54,8 @@ export default function ChatListScreen() {
           contentContainerStyle={{ paddingHorizontal: 16 }}
           ListEmptyComponent={
             <View style={{ alignItems: "center", marginTop: 50 }}>
-              <Ionicons name="chatbubbles-outline" size={48} color="#CCC" />
-              <Text style={{ color: "#999", marginTop: 10 }}>Поки немає діалогів</Text>
+              <Ionicons name="chatbubbles-outline" size={48} color={colors.textMuted} />
+              <Text style={{ color: colors.textMuted, marginTop: 10 }}>Поки немає діалогів</Text>
             </View>
           }
           renderItem={({ item }) => (

@@ -10,8 +10,10 @@ import {
   StyleSheet,
 } from "react-native";
 import { supabase } from "../../supabaseConfig";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export default function AuthScreen() {
+  const { colors } = useAppTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -66,9 +68,9 @@ export default function AuthScreen() {
   }
 
   return (
-    <SafeAreaView style={authStyles.container}>
-      <View style={authStyles.card}>
-        <Text style={authStyles.title}>
+    <SafeAreaView style={[authStyles.container, { backgroundColor: colors.background }]}>
+      <View style={[authStyles.card, { backgroundColor: colors.card }]}>
+        <Text style={[authStyles.title, { color: colors.text }]}>
           {isLogin ? "Вхід у BeautyTime" : "Реєстрація"}
         </Text>
 
@@ -78,13 +80,15 @@ export default function AuthScreen() {
               placeholder="Ім'я"
               value={firstName}
               onChangeText={setFirstName}
-              style={authStyles.input}
+              style={[authStyles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+              placeholderTextColor={colors.textMuted}
             />
             <TextInput
               placeholder="Прізвище"
               value={lastName}
               onChangeText={setLastName}
-              style={authStyles.input}
+              style={[authStyles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+              placeholderTextColor={colors.textMuted}
             />
           </>
         )}
@@ -94,7 +98,8 @@ export default function AuthScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
-          style={authStyles.input}
+          style={[authStyles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+          placeholderTextColor={colors.textMuted}
           keyboardType="email-address"
         />
         <TextInput
@@ -102,18 +107,19 @@ export default function AuthScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          style={authStyles.input}
+          style={[authStyles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+          placeholderTextColor={colors.textMuted}
         />
 
         <TouchableOpacity
-          style={authStyles.button}
+          style={[authStyles.button, { backgroundColor: colors.primary }]}
           onPress={handleAuth}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={colors.primaryText} />
           ) : (
-            <Text style={authStyles.buttonText}>
+            <Text style={[authStyles.buttonText, { color: colors.primaryText }]}>
               {isLogin ? "Увійти" : "Зареєструватись"}
             </Text>
           )}
@@ -123,7 +129,7 @@ export default function AuthScreen() {
           onPress={() => setIsLogin(!isLogin)}
           style={{ marginTop: 20 }}
         >
-          <Text style={authStyles.switchText}>
+          <Text style={[authStyles.switchText, { color: colors.accent }]}>
             {isLogin ? "Немає акаунту? Зареєструватись" : "Вже є акаунт? Увійти"}
           </Text>
         </TouchableOpacity>

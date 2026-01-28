@@ -3,12 +3,15 @@ import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import { styles } from "../../styles";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export default function ChatRow({ chat, onPress, onDelete }) {
+  const { colors } = useAppTheme();
+
   const renderRightActions = () => (
     <TouchableOpacity
       style={{
-        backgroundColor: "#ff4444",
+        backgroundColor: colors.danger,
         justifyContent: "center",
         alignItems: "center",
         width: 80,
@@ -23,7 +26,7 @@ export default function ChatRow({ chat, onPress, onDelete }) {
   return (
     <Swipeable renderRightActions={renderRightActions}>
       <TouchableOpacity
-        style={[styles.chatRow, { backgroundColor: "white" }]}
+        style={[styles.chatRow, { backgroundColor: colors.card, borderColor: colors.border }]}
         activeOpacity={1}
         onPress={() => onPress?.(chat)}
       >
@@ -33,8 +36,8 @@ export default function ChatRow({ chat, onPress, onDelete }) {
           <View style={styles.avatarPlaceholder} />
         )}
         <View style={{ flex: 1, marginLeft: 12, justifyContent: "center" }}>
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>{chat.name}</Text>
-          <Text numberOfLines={1} style={{ color: "#999", fontSize: 13, marginTop: 2 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{chat.name}</Text>
+          <Text numberOfLines={1} style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>
             {chat.lastMessage}
           </Text>
         </View>
