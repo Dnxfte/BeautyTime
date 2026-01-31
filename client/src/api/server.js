@@ -4,8 +4,17 @@ export const SERVER_URL = "https://beauty-time-server.vercel.app/";
 
 export async function apiRequest(path, options = {}) {
   const requireAuth = options.requireAuth !== false;
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  let { data: { session } } = await supabase.auth.getSession();
+  let token = session?.access_token;
+  if (requireAuth && !token) {
+    try {
+      const refreshResult = await supabase.auth.refreshSession();
+      session = refreshResult.data?.session || session;
+      token = session?.access_token;
+    } catch {
+      // ignore refresh errors, will throw Unauthorized below
+    }
+  }
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
