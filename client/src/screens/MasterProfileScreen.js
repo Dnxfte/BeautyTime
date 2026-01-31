@@ -22,6 +22,7 @@ import { getNextDays } from "../utils/date";
 import { getLeafletHTML } from "../utils/leaflet";
 import { useBookings } from "../contexts/BookingsContext";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { apiRequest } from "../api/server";
 
 export default function MasterProfileScreen({ route }) {
   const navigation = useNavigation();
@@ -70,25 +71,20 @@ export default function MasterProfileScreen({ route }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .insert([
-          {
-            master_name: master.name,
-            client_name: clientEmail,
-            client_id: user?.id,
-            service_name: selectedService.name,
-            date_time: fullDateTime,
-            status: "active",
-          },
-        ])
-        .select();
+      const data = await apiRequest("/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          master_name: master.name,
+          service_name: selectedService.name,
+          date_time: fullDateTime,
+        }),
+      });
 
-      if (error) {
+      if (!data) {
         Alert.alert("Помилка", "Не вдалося записатись.");
       } else {
         const newBooking = {
-          id: data[0].id.toString(),
+          id: data.id.toString(),
           date: fullDateTime,
           master: master.name,
           address: master.address,

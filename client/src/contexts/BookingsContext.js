@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseConfig";
+import { apiRequest } from "../api/server";
 import { parseDateString } from "../utils/date";
 
 const BookingsContext = createContext(null);
@@ -60,9 +61,7 @@ export function BookingsProvider({ children }) {
     const userEmail = session.user.email;
     const loadData = async () => {
       try {
-        const { data: mastersData } = await supabase
-          .from("masters")
-          .select("name, avatar_url, address");
+        const mastersData = await apiRequest("/masters");
 
         const mastersMap = {};
         if (mastersData) {
@@ -71,10 +70,7 @@ export function BookingsProvider({ children }) {
           });
         }
 
-        const { data: messagesData } = await supabase
-          .from("messages")
-          .select("chat_id, created_at, text")
-          .order("created_at", { ascending: false });
+        const messagesData = await apiRequest("/messages");
 
         if (messagesData && active) {
           const uniqueChats = [];
@@ -98,11 +94,7 @@ export function BookingsProvider({ children }) {
           setChats(uniqueChats);
         }
 
-        const { data: bookingsData } = await supabase
-          .from("bookings")
-          .select("*")
-          .eq("client_name", userEmail)
-          .order("created_at", { ascending: false });
+        const bookingsData = await apiRequest("/bookings");
 
         if (bookingsData && active) {
           const now = new Date();
@@ -141,13 +133,15 @@ export function BookingsProvider({ children }) {
   }, []);
 
   const cancelBooking = useCallback(async (id) => {
-    const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
-    if (!error) {
+    try {
+      await apiRequest(`/bookings/${id}/cancel`, { method: "PATCH" });
       setBookings((prev) =>
         prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item))
       );
+      return { error: null };
+    } catch (error) {
+      return { error };
     }
-    return { error };
   }, []);
 
   const startChat = useCallback((masterName, avatarUrl, userEmailOverride) => {
@@ -169,11 +163,13 @@ export function BookingsProvider({ children }) {
   }, [session]);
 
   const deleteChat = useCallback(async (chatId) => {
-    const { error } = await supabase.from("messages").delete().eq("chat_id", chatId);
-    if (!error) {
+    try {
+      await apiRequest(`/messages/${encodeURIComponent(chatId)}`, { method: "DELETE" });
       setChats((prev) => prev.filter((c) => c.id !== chatId));
+      return { error: null };
+    } catch (error) {
+      return { error };
     }
-    return { error };
   }, []);
 
   const value = useMemo(

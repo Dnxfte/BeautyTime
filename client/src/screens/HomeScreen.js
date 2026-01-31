@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../../supabaseConfig";
+import { apiRequest } from "../api/server";
 import { styles } from "../../styles";
 import MasterCard from "../components/MasterCard";
 import { useAppTheme } from "../contexts/ThemeContext";
@@ -28,8 +28,8 @@ export default function HomeScreen() {
 
   const fetchMasters = async () => {
     try {
-      const { data, error } = await supabase.from("masters").select("*");
-      if (!error) setMasters(data || []);
+      const data = await apiRequest("/masters");
+      if (data) setMasters(data || []);
     } catch (error) {
       console.error(error);
     } finally {

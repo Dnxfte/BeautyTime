@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../supabaseConfig";
 import { styles } from "../../styles";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { apiRequest } from "../api/server";
 
 export default function ChatDetailScreen({ route }) {
   const { chatId, name, avatar } = route.params;
@@ -54,13 +55,8 @@ export default function ChatDetailScreen({ route }) {
   }, [chatId]);
 
   const fetchHistory = async () => {
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("chat_id", chatId)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
+    try {
+      const data = await apiRequest(`/messages?chatId=${encodeURIComponent(chatId)}`);
       const formatted = data.map((m) => ({
         id: m.id.toString(),
         text: m.text,
@@ -68,6 +64,8 @@ export default function ChatDetailScreen({ route }) {
         time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }));
       setMessages(formatted);
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -83,13 +81,10 @@ export default function ChatDetailScreen({ route }) {
         return;
       }
 
-      const { error } = await supabase.from("messages").insert([
-        { chat_id: chatId, sender: "client", text: textToSend, client_id: user?.id },
-      ]);
-      if (error) {
-        Alert.alert("Помилка", "Не вдалося надіслати повідомлення");
-        return;
-      }
+      await apiRequest("/messages", {
+        method: "POST",
+        body: JSON.stringify({ chat_id: chatId, text: textToSend }),
+      });
       setInputText("");
     } catch (e) {
       console.log(e);
