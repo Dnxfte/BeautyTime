@@ -15,9 +15,6 @@ export async function apiRequest(path, options = {}) {
       // ignore refresh errors, will throw Unauthorized below
     }
   }
-  if (!token) {
-    console.log("API TOKEN missing", { hasSession: !!session });
-  }
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),

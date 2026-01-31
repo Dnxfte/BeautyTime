@@ -66,13 +66,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      {__DEV__ && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <Text style={{ fontSize: 12, color: colors.textMuted }}>
-            DEBUG: token={session?.access_token ? "ok" : "missing"}
-          </Text>
-        </View>
-      )}
       <View style={styles.headerContainer}>
         <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
