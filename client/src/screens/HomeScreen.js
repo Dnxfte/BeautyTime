@@ -14,17 +14,24 @@ import { apiRequest } from "../api/server";
 import { styles } from "../../styles";
 import MasterCard from "../components/MasterCard";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { useBookings } from "../contexts/BookingsContext";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const { colors, theme } = useAppTheme();
+  const { session, sessionLoading } = useBookings();
   const [masters, setMasters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    if (sessionLoading) return;
+    if (!session) {
+      setLoading(false);
+      return;
+    }
     fetchMasters();
-  }, []);
+  }, [sessionLoading, session]);
 
   const fetchMasters = async () => {
     try {
