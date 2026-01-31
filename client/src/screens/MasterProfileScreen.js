@@ -60,12 +60,12 @@ export default function MasterProfileScreen({ route }) {
     const fullDateTime = `${d.day} ${d.month} ${d.fullDate.getFullYear()} о ${selectedTime}`;
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
         Alert.alert("Помилка", "Потрібно увійти");
         return;
       }
-      const clientEmail = user?.email || userEmail;
+      const clientEmail = session.user?.email || userEmail;
       if (!clientEmail) {
         Alert.alert("Помилка", "Не вдалося визначити email користувача");
         return;

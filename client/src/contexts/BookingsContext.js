@@ -52,7 +52,7 @@ export function BookingsProvider({ children }) {
   useEffect(() => {
     let active = true;
 
-    if (!session?.user?.email) {
+    if (!session?.access_token || !session?.user?.email) {
       setBookings([]);
       setChats([]);
       return () => { active = false; };

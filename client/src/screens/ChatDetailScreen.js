@@ -74,8 +74,8 @@ export default function ChatDetailScreen({ route }) {
     if (textToSend.length === 0 || sending) return;
     setSending(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
         Alert.alert("Помилка", "Потрібно увійти");
         setSending(false);
         return;

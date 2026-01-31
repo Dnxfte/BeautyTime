@@ -26,7 +26,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (sessionLoading) return;
-    if (!session) {
+    if (!session?.access_token) {
       setLoading(false);
       return;
     }
